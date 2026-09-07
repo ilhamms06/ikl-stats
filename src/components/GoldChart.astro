@@ -1,0 +1,58 @@
+---
+interface Props {
+  goldA: number;
+  goldB: number;
+  teamAName: string;
+  teamBName: string;
+  duration: string;
+}
+const { goldA, goldB, teamAName, teamBName, duration } = Astro.props;
+
+const diff = goldA - goldB;
+const diffK = (Math.abs(diff) / 1000).toFixed(1);
+const sign = diff >= 0 ? '+' : '-';
+const goldAK = (goldA / 1000).toFixed(1);
+const goldBK = (goldB / 1000).toFixed(1);
+---
+
+<div class="gold-box">
+  <div class="gold-head">
+    <span class="lead">{teamAName} {goldAK}K &nbsp;&middot;&nbsp; {teamBName} {goldBK}K</span>
+    <span class="peak tab-num">{sign}{diffK}K<small>SELISIH SAAT GAME BERAKHIR</small></span>
+  </div>
+  <svg viewBox="0 0 900 300" preserveAspectRatio="none" role="img" aria-label={`Grafik selisih gold ${teamAName} sepanjang game`}>
+    <line x1="0" y1="150" x2="900" y2="150" stroke="rgba(224,168,60,0.35)" stroke-width="1"/>
+    <line x1="0" y1="75" x2="900" y2="75" stroke="rgba(224,168,60,0.10)" stroke-width="1"/>
+    <line x1="0" y1="225" x2="900" y2="225" stroke="rgba(224,168,60,0.10)" stroke-width="1"/>
+    <path id="goldArea" fill="rgba(176,34,51,0.42)"></path>
+    <path id="goldLine" fill="none" stroke="#E0A83C" stroke-width="2.2"></path>
+    <text x="6" y="68" fill="#6E5153" font-family="Barlow Semi Condensed" font-size="15">+12K</text>
+    <text x="6" y="144" fill="#6E5153" font-family="Barlow Semi Condensed" font-size="15">0</text>
+    <text x="6" y="243" fill="#6E5153" font-family="Barlow Semi Condensed" font-size="15">-12K</text>
+    <text x="14" y="291" fill="#6E5153" font-family="Barlow Semi Condensed" font-size="15">00:00</text>
+    <text x="838" y="291" fill="#6E5153" font-family="Barlow Semi Condensed" font-size="15">{duration}</text>
+  </svg>
+  <p class="note">Kurva ini rekonstruksi dari data gold akhir. Selisih akhir dan total gold kedua tim diambil langsung dari layar hasil.</p>
+</div>
+
+<script define:vars={{ diff }}>
+const absDiff = Math.abs(diff);
+const steps = 12;
+const W = 900, mid = 150, scale = 12000;
+const step = W / steps;
+const pts = [];
+for (let i = 0; i <= steps; i++) {
+  const progress = i / steps;
+  const ease = progress < 0.5
+    ? 2 * progress * progress
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+  pts.push(Math.round(ease * diff));
+}
+const line = pts.map((v, i) =>
+  `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(mid - (v / scale) * mid).toFixed(1)}`
+).join(' ');
+const areaEl = document.getElementById('goldArea');
+const lineEl = document.getElementById('goldLine');
+if (lineEl) lineEl.setAttribute('d', line);
+if (areaEl) areaEl.setAttribute('d', `${line} L${W},${mid} L0,${mid} Z`);
+</script>

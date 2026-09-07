@@ -1,0 +1,241 @@
+---
+import Base from '../layouts/Base.astro';
+import MedalSvg from '../components/MedalSvg.astro';
+import Leaderboard from '../components/Leaderboard.astro';
+import { supabase } from '../lib/supabase';
+
+const navLinks = [
+  { href: '#pertandingan', label: 'PERTANDINGAN' },
+  { href: '#klasemen', label: 'KLASEMEN' },
+  { href: '#peringkat-pemain', label: 'PEMAIN' },
+  { href: '#peringkat-tim', label: 'PERINGKAT TIM' },
+  { href: '#tim', label: 'TIM' },
+];
+
+const { data: standings } = await supabase
+  .from('v_standings')
+  .select('*')
+  .order('points', { ascending: false })
+  .order('game_diff', { ascending: false });
+
+const { data: players } = await supabase
+  .from('v_player_season_stats')
+  .select('*')
+  .order('damage_dealt', { ascending: false });
+
+const { data: teamStats } = await supabase
+  .from('v_team_season_stats')
+  .select('*');
+
+const { data: matchResults } = await supabase
+  .from('v_match_results')
+  .select('*')
+  .order('played_on', { ascending: false });
+
+const { data: teams } = await supabase
+  .from('teams')
+  .select('*');
+
+const { data: matches } = await supabase
+  .from('matches')
+  .select('*, team_a:teams!team_a_id(code, name, color), team_b:teams!team_b_id(code, name, color)')
+  .order('played_on', { ascending: false });
+
+const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
+
+const totalGames = standings?.reduce((s, t) => s + (t.game_wins || 0), 0) / 2 || 0;
+const totalPlayers = players?.length || 0;
+const totalDamage = players?.reduce((s, p) => s + (p.damage_dealt || 0), 0) || 0;
+
+const matchLookup = new Map();
+matchResults?.forEach(m => matchLookup.set(m.match_id, m));
+
+const statusLabel = (rank: number, total: number) => {
+  if (rank === 1) return { label: 'MEMIMPIN', cls: 'j' };
+  if (rank <= Math.ceil(total / 2)) return { label: 'ZONA PLAYOFF', cls: 'p' };
+  return { label: 'LUAR ZONA', cls: 'o' };
+};
+
+const teamAgg = (teamStats || []).map(t => {
+  const pls = (players || []).filter(p => p.team_code === t.team_code);
+  return {
+    ...t,
+    kills: pls.reduce((s, p) => s + (p.kills || 0), 0),
+    deaths: pls.reduce((s, p) => s + (p.deaths || 0), 0),
+    dpm: pls.reduce((s, p) => s + (p.damage_per_minute || 0), 0) / (pls.length || 1),
+    tf: pls.reduce((s, p) => s + (p.avg_teamfight_rate || 0), 0) / (pls.length || 1),
+  };
+}).sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths));
+---
+
+<Base title="Indonesia Kings Laga — Pusat Statistik" navLinks={navLinks}>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <MedalSvg class="hero-medal" />
+    <div class="eyebrow">HONOR OF KINGS · 2026 FALL SEASON</div>
+    <h1>KINGS LAGA<span class="sub">SETIAP LAGA TERCATAT, SETIAP ANGKA PUNYA CERITA</span></h1>
+
+    <div class="recap">
+      <div><span class="n tab-num">{totalGames}</span><span class="k">GAME TERCATAT</span></div>
+      <div><span class="n tab-num">{totalPlayers}</span><span class="k">PEMAIN TERDATA</span></div>
+      <div><span class="n tab-num">{nf(totalDamage / 1000)}<span style="font-size:.6em">RB</span></span><span class="k">TOTAL DAMAGE</span></div>
+      <div><span class="n tab-num">—</span><span class="k">GAME TERCEPAT</span></div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- PERTANDINGAN -->
+  <section id="pertandingan" class="first">
+    <div class="sec-head">
+      <span class="idx">01 — HASIL</span>
+      <h2>PERTANDINGAN</h2>
+      <p>Klik pertandingan untuk membuka rincian per game: duel antar lane, scoreboard, perebutan objektif, dan grafik gold.</p>
+    </div>
+    <div class="mlist">
+      {(matches || []).map(m => {
+        const mr = matchLookup.get(m.id);
+        const hasData = mr && (mr.team_a_games > 0 || mr.team_b_games > 0);
+        const aWins = mr?.team_a_games || 0;
+        const bWins = mr?.team_b_games || 0;
+        const aWon = aWins > bWins;
+        return (
+          <a class={`mrow${!hasData ? ' dim' : ''}`} href={hasData ? `/match/${m.code.toLowerCase()}` : '#'}>
+            <span class="m-when">{m.played_on ? new Date(m.played_on).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'JADWAL'}</span>
+            <span class="m-team">
+              <span class="crest" style={`background:${m.team_a?.color}`}>{m.team_a?.code}</span>
+              <span class={aWon ? 'won' : 'lost'}>{m.team_a?.name?.toUpperCase()}</span>
+            </span>
+            <span class="m-score tab-num">{hasData ? `${aWins} – ${bWins}` : 'VS'}</span>
+            <span class="m-team r">
+              <span class="crest" style={`background:${m.team_b?.color}`}>{m.team_b?.code}</span>
+              <span class={!aWon ? 'won' : 'lost'}>{m.team_b?.name?.toUpperCase()}</span>
+            </span>
+            <span class="m-go">{hasData ? 'LIHAT DETAIL' : 'BELUM DIINPUT'}</span>
+          </a>
+        );
+      })}
+    </div>
+    <p class="note">Baris yang meredup menandakan datanya belum diekstrak dari siaran.</p>
+  </section>
+
+  <!-- KLASEMEN -->
+  <section id="klasemen">
+    <div class="sec-head">
+      <span class="idx">02 — MUSIM BERJALAN</span>
+      <h2>KLASEMEN</h2>
+    </div>
+    <div class="sb-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Tim</th><th>Match</th><th>M</th><th>K</th><th>Selisih Game</th><th>Poin</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {(standings || []).map((t, i) => {
+            const st = statusLabel(i + 1, standings?.length || 0);
+            const diff = t.game_diff || 0;
+            return (
+              <tr>
+                <td class="rk">{i + 1}</td>
+                <td class="p-name">{t.team_name?.toUpperCase()}</td>
+                <td class="tab-num">{t.matches_played}</td>
+                <td class="tab-num">{t.match_wins}</td>
+                <td class="tab-num">{t.match_losses}</td>
+                <td class={`tab-num ${diff > 0 ? 'pos' : diff < 0 ? 'neg' : ''}`}>{diff > 0 ? '+' : ''}{diff}</td>
+                <td class="tab-num">{t.points}</td>
+                <td><span class={`tag ${st.cls}`}>{st.label}</span></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PAPAN PERINGKAT PEMAIN -->
+  <section id="peringkat-pemain">
+    <div class="sec-head">
+      <span class="idx">03 — PERFORMA INDIVIDU</span>
+      <h2>PAPAN PERINGKAT PEMAIN</h2>
+      <p>Seluruh pemain yang datanya sudah tercatat, diurutkan per metrik.</p>
+    </div>
+    <Leaderboard players={players || []} />
+  </section>
+
+  <!-- PERINGKAT TIM -->
+  <section id="peringkat-tim">
+    <div class="sec-head">
+      <span class="idx">04 — PERFORMA TIM</span>
+      <h2>PERINGKAT TIM</h2>
+      <p>Agregat per tim dari seluruh game yang tercatat.</p>
+    </div>
+    <div class="sb-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Tim</th><th>Game</th><th>Kill</th><th>Death</th><th>Gold</th><th>Gold/Menit</th><th>Dmg/Menit</th><th>Tower</th><th>Objektif Besar</th><th>Teamfight</th></tr>
+        </thead>
+        <tbody>
+          {teamAgg.map((t, i) => (
+            <tr>
+              <td class="rk">{i + 1}</td>
+              <td class="p-name">
+                <span style={`display:inline-block;width:4px;height:14px;background:${t.team_color};margin-right:8px;vertical-align:-2px;`}></span>
+                {t.team_name?.toUpperCase()}
+              </td>
+              <td class="tab-num">{t.games_played}</td>
+              <td class="tab-num">{t.kills}</td>
+              <td class="tab-num">{t.deaths}</td>
+              <td class="tab-num">{nf(t.total_gold)}</td>
+              <td class="tab-num">{nf(t.gold_per_minute)}</td>
+              <td class="tab-num">{nf(t.dpm)}</td>
+              <td class="tab-num">{t.towers}</td>
+              <td class={`tab-num${t.major_objectives === 0 ? ' z' : ''}`}>{t.major_objectives}</td>
+              <td class="tab-num">{t.tf.toFixed(0)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TIM -->
+  <section id="tim">
+    <div class="sec-head">
+      <span class="idx">05 — PESERTA</span>
+      <h2>TIM</h2>
+      <p>Tim yang berlaga musim ini.</p>
+    </div>
+    <div class="teams">
+      {(teams || []).map(t => {
+        const s = (standings || []).find(st => st.team_code === t.code);
+        const hasGames = s && s.matches_played > 0;
+        return (
+          <a class={`tcard${!hasGames ? ' empty' : ''}`} href={hasGames ? `/tim/${t.code.toLowerCase()}` : '#'} style={`border-top-color:${t.color}`}>
+            <span class="crest" style={`background:${t.color}`}>{t.code}</span>
+            <span class="tn">{t.name?.toUpperCase()}</span>
+            <span class="tr">{hasGames ? `${s.match_wins} MENANG · ${s.match_losses} KALAH` : 'BELUM BERTANDING'}</span>
+            <span class="tl">{hasGames ? 'LIHAT PROFIL' : 'PROFIL MENYUSUL'}</span>
+          </a>
+        );
+      })}
+    </div>
+  </section>
+
+</main>
+
+<script>
+const links = [...document.querySelectorAll('#nav a')];
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    if(en.isIntersecting){
+      links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + en.target.id));
+    }
+  });
+}, { rootMargin:'-25% 0px -65% 0px' });
+document.querySelectorAll('main section').forEach(s => spy.observe(s));
+</script>
+
+</Base>

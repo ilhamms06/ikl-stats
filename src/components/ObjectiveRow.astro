@@ -1,0 +1,36 @@
+---
+interface Objective {
+  label: string;
+  a: number;
+  b: number;
+  cap: number;
+}
+interface Props {
+  objectives: Objective[];
+  teamAColor: string;
+  teamBColor: string;
+}
+const { objectives, teamAColor, teamBColor } = Astro.props;
+---
+
+{objectives.map(o => (
+  <div class="obj-row">
+    <div class="obj-side l">
+      <span class={`obj-count tab-num${o.a === 0 ? ' nil' : ''}`}>{o.a}</span>
+      <div class="obj-pips l">
+        {Array.from({ length: o.cap }, (_, i) => (
+          <span class={`obj-pip ${i < o.a ? 'on-a' : 'off'}`} style={i < o.a ? `background:${teamAColor}` : ''}></span>
+        ))}
+      </div>
+    </div>
+    <div class="obj-label">{o.label}</div>
+    <div class="obj-side r">
+      <span class={`obj-count tab-num${o.b === 0 ? ' nil' : ''}`}>{o.b}</span>
+      <div class="obj-pips r">
+        {Array.from({ length: o.cap }, (_, i) => (
+          <span class={`obj-pip ${i < o.b ? 'on-b' : 'off'}`} style={i < o.b ? `background:${teamBColor}` : ''}></span>
+        ))}
+      </div>
+    </div>
+  </div>
+))}

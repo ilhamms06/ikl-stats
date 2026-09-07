@@ -1,0 +1,92 @@
+---
+interface Player {
+  player_handle: string;
+  team_code: string;
+  team_name: string;
+  team_color: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  damage_dealt: number;
+  damage_taken: number;
+  gold: number;
+  kda: number;
+  avg_teamfight_rate: number;
+  damage_per_minute: number;
+  damage_per_1k_gold: number;
+  gold_per_minute: number;
+  games_played: number;
+  mvp_count: number;
+}
+interface Props {
+  players: Player[];
+}
+const { players } = Astro.props;
+const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
+---
+
+<div class="lb-tabs" id="lbTabs">
+  <button class="lb-tab on" data-m="dealt">DAMAGE DEALT</button>
+  <button class="lb-tab" data-m="taken">DAMAGE TAKEN</button>
+  <button class="lb-tab" data-m="gold">TOTAL GOLD</button>
+  <button class="lb-tab" data-m="kda">KDA</button>
+  <button class="lb-tab" data-m="kill">KILL</button>
+  <button class="lb-tab" data-m="assist">ASSIST</button>
+  <button class="lb-tab" data-m="tf">TEAMFIGHT</button>
+  <button class="lb-tab" data-m="dpm">DAMAGE / MENIT</button>
+  <button class="lb-tab" data-m="eff">DAMAGE / 1RB GOLD</button>
+  <button class="lb-tab" data-m="gpm">GOLD / MENIT</button>
+</div>
+
+<p class="lb-explain" id="lbExplain"></p>
+<div id="lbList"></div>
+
+<script define:vars={{ players }}>
+const PLAYERS = players;
+
+const LB = {
+  dealt:  { label:'DAMAGE DEALT',      val:p => p.damage_dealt,       fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Total damage yang dikeluarkan ke lawan.' },
+  taken:  { label:'DAMAGE TAKEN',      val:p => p.damage_taken,       fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Total damage yang diserap. Angka tinggi biasanya milik roam dan clash lane.' },
+  gold:   { label:'TOTAL GOLD',        val:p => p.gold,               fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Gold terkumpul sampai game berakhir.' },
+  kda:    { label:'KDA',               val:p => Number(p.kda),        fmt:v => v.toFixed(2), note:'(Kill + Assist) dibagi Death. Death nol dihitung satu.' },
+  kill:   { label:'KILL',              val:p => p.kills,              fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Jumlah kill.' },
+  assist: { label:'ASSIST',            val:p => p.assists,            fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Jumlah assist.' },
+  tf:     { label:'TEAMFIGHT',         val:p => Number(p.avg_teamfight_rate), fmt:v => v.toFixed(0) + '%', note:'Rata-rata kehadiran di teamfight.' },
+  dpm:    { label:'DAMAGE / MENIT',    val:p => Number(p.damage_per_minute),  fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Damage dibagi durasi game. Berguna untuk membandingkan game pendek dan panjang.' },
+  eff:    { label:'DAMAGE / 1RB GOLD', val:p => Number(p.damage_per_1k_gold), fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Damage per 1.000 gold. Mengukur efisiensi.' },
+  gpm:    { label:'GOLD / MENIT',      val:p => Number(p.gold_per_minute),    fmt:v => Math.round(v).toLocaleString('id-ID'), note:'Kecepatan mengumpulkan gold per menit.' }
+};
+
+const lbList = document.getElementById('lbList');
+const lbExplain = document.getElementById('lbExplain');
+
+function renderLB(key){
+  const m = LB[key];
+  lbExplain.textContent = m.note;
+  const sorted = [...PLAYERS].sort((x, y) => m.val(y) - m.val(x));
+  const max = m.val(sorted[0]) || 1;
+  lbList.innerHTML = sorted.map((p, i) => {
+    const v = m.val(p);
+    const c = p.team_color;
+    return `
+      <div class="lb-row${i < 3 ? ' top' : ''}">
+        <span class="lb-rank">${i + 1}</span>
+        <span class="lb-who">
+          <span class="lb-dot" style="background:${c}"></span>
+          <span class="lb-nm"><b>${p.player_handle}</b><span>${p.team_name}</span></span>
+        </span>
+        <span class="lb-track"><span class="lb-fill" style="width:${(v / max * 100).toFixed(1)}%;background:linear-gradient(90deg, ${c}55, ${c})"></span></span>
+        <span class="lb-val">${m.fmt(v)}</span>
+      </div>`;
+  }).join('');
+}
+renderLB('dealt');
+
+document.getElementById('lbTabs').addEventListener('click', e => {
+  const btn = e.target.closest('.lb-tab');
+  if(!btn) return;
+  document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderLB(btn.dataset.m);
+});
+</script>

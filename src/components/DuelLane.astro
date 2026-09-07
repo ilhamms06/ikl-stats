@@ -1,0 +1,100 @@
+---
+interface PlayerSide {
+  player_handle: string;
+  role: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  damage_dealt: number;
+  damage_taken: number;
+  gold: number;
+  teamfight_rate: number;
+  is_mvp: boolean;
+}
+interface Props {
+  teamA: { code: string; name: string; color: string };
+  teamB: { code: string; name: string; color: string };
+  playersA: PlayerSide[];
+  playersB: PlayerSide[];
+}
+const { teamA, teamB, playersA, playersB } = Astro.props;
+
+const ROLES = ['clash_lane', 'jungle', 'mid_lane', 'farm_lane', 'roam'];
+const ROLE_LABELS: Record<string, string> = {
+  clash_lane: 'Clash Lane', jungle: 'Jungle', mid_lane: 'Mid Lane',
+  farm_lane: 'Farm Lane', roam: 'Roam'
+};
+
+const duels = ROLES.map(role => ({
+  role,
+  label: ROLE_LABELS[role],
+  a: playersA.find(p => p.role === role),
+  b: playersB.find(p => p.role === role),
+})).filter(d => d.a && d.b);
+---
+
+<div class="metric-row" id="metricRow">
+  <button class="mbtn on" data-metric="dealt">DAMAGE DEALT</button>
+  <button class="mbtn" data-metric="taken">DAMAGE TAKEN</button>
+  <button class="mbtn" data-metric="gold">GOLD</button>
+  <button class="mbtn" data-metric="tf">TEAMFIGHT RATE</button>
+</div>
+
+<div class="duel-legend">
+  <span class="l" style={`color:${teamA.color}`}>{teamA.name}</span>
+  <span class="c" id="metricLabel">DAMAGE DEALT</span>
+  <span class="r" style={`color:${teamB.color}`}>{teamB.name}</span>
+</div>
+
+<div id="duelList">
+  {duels.map(d => (
+    <div class={`duel${d.a?.is_mvp || d.b?.is_mvp ? ' mvp' : ''}`} data-role={d.role}>
+      <div class="duel-side left">
+        <span class="duel-val" data-side="a"></span>
+        <div class="duel-bar-zone"><div class="duel-bar" data-side="a" style={`width:0;background:linear-gradient(90deg, ${teamA.color}55, ${teamA.color})`}></div></div>
+        <span class="duel-name">{d.a?.player_handle}</span>
+      </div>
+      <div class="duel-role">{d.label}</div>
+      <div class="duel-side right">
+        <span class="duel-name">{d.b?.player_handle}</span>
+        <div class="duel-bar-zone"><div class="duel-bar" data-side="b" style={`width:0;background:linear-gradient(270deg, ${teamB.color}55, ${teamB.color})`}></div></div>
+        <span class="duel-val" data-side="b"></span>
+      </div>
+    </div>
+  ))}
+</div>
+
+<script define:vars={{ duels }}>
+const METRICS = {
+  dealt:{ label:'DAMAGE DEALT',   key:'damage_dealt', max:60000, fmt:v => v.toLocaleString('id-ID') },
+  taken:{ label:'DAMAGE TAKEN',   key:'damage_taken', max:60000, fmt:v => v.toLocaleString('id-ID') },
+  gold: { label:'GOLD',           key:'gold',         max:11000, fmt:v => v.toLocaleString('id-ID') },
+  tf:   { label:'TEAMFIGHT RATE', key:'teamfight_rate', max:100, fmt:v => v + '%' }
+};
+
+const DUEL_DATA = duels;
+
+function renderMetric(id){
+  const m = METRICS[id];
+  document.getElementById('metricLabel').textContent = m.label;
+  document.querySelectorAll('.duel').forEach(row => {
+    const d = DUEL_DATA.find(dd => dd.role === row.dataset.role);
+    if (!d) return;
+    ['a','b'].forEach(side => {
+      const val = d[side][m.key];
+      row.querySelector(`.duel-val[data-side="${side}"]`).textContent = m.fmt(val);
+      row.querySelector(`.duel-bar[data-side="${side}"]`).style.width =
+        Math.max((val / m.max) * 100, 1.5).toFixed(1) + '%';
+    });
+  });
+}
+requestAnimationFrame(() => renderMetric('dealt'));
+
+document.getElementById('metricRow').addEventListener('click', e => {
+  const btn = e.target.closest('.mbtn');
+  if(!btn) return;
+  document.querySelectorAll('.mbtn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderMetric(btn.dataset.metric);
+});
+</script>

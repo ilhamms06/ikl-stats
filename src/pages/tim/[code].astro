@@ -1,0 +1,220 @@
+---
+import Base from '../../layouts/Base.astro';
+import { supabase } from '../../lib/supabase';
+
+export async function getStaticPaths() {
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('code');
+  return (teams || []).map(t => ({
+    params: { code: t.code.toLowerCase() }
+  }));
+}
+
+const { code } = Astro.params;
+const upperCode = code!.toUpperCase();
+
+const { data: team } = await supabase
+  .from('teams')
+  .select('*')
+  .eq('code', upperCode)
+  .single();
+
+const { data: standing } = await supabase
+  .from('v_standings')
+  .select('*')
+  .eq('team_code', upperCode)
+  .maybeSingle();
+
+const { data: teamStat } = await supabase
+  .from('v_team_season_stats')
+  .select('*')
+  .eq('team_code', upperCode)
+  .maybeSingle();
+
+const { data: playerStats } = await supabase
+  .from('v_player_season_stats')
+  .select('*')
+  .eq('team_code', upperCode)
+  .order('damage_dealt', { ascending: false });
+
+const { data: matchesRaw } = await supabase
+  .from('matches')
+  .select('*, team_a:teams!team_a_id(code, name, color), team_b:teams!team_b_id(code, name, color)')
+  .or(`team_a_id.eq.${team?.id},team_b_id.eq.${team?.id}`)
+  .order('played_on', { ascending: false });
+
+const { data: matchResults } = await supabase
+  .from('v_match_results')
+  .select('*');
+
+const matchLookup = new Map();
+matchResults?.forEach(m => matchLookup.set(m.match_id, m));
+
+const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
+const kdaRatio = (k: number, d: number, a: number) => ((k + a) / Math.max(d, 1)).toFixed(2);
+
+const ROLE_LABELS: Record<string, string> = {
+  clash_lane: 'Clash Lane', jungle: 'Jungle', mid_lane: 'Mid Lane',
+  farm_lane: 'Farm Lane', roam: 'Roam'
+};
+
+const navLinks = [
+  { href: '#roster', label: 'ROSTER' },
+  { href: '#kontribusi', label: 'KONTRIBUSI' },
+  { href: '#laga', label: 'LAGA' },
+];
+
+const totalKills = (playerStats || []).reduce((s, p) => s + (p.kills || 0), 0);
+const totalDeaths = (playerStats || []).reduce((s, p) => s + (p.deaths || 0), 0);
+const totalAssists = (playerStats || []).reduce((s, p) => s + (p.assists || 0), 0);
+
+const rank = standing ? 1 : 0;
+
+const sortedByDealt = [...(playerStats || [])].sort((a, b) => b.damage_dealt - a.damage_dealt);
+const sortedByTaken = [...(playerStats || [])].sort((a, b) => b.damage_taken - a.damage_taken);
+const totalDealt = sortedByDealt.reduce((s, p) => s + p.damage_dealt, 0);
+const totalTaken = sortedByTaken.reduce((s, p) => s + p.damage_taken, 0);
+const maxDealt = sortedByDealt[0]?.damage_dealt || 1;
+const maxTaken = sortedByTaken[0]?.damage_taken || 1;
+---
+
+<Base
+  title={`${team?.name} — Profil Tim · Indonesia Kings Laga`}
+  navLinks={navLinks}
+  source={`Sumber: siaran langsung · 2026 Fall Season`}
+>
+
+<div class="wrap">
+  <p class="crumb"><a href="/">TIM</a> &nbsp;/&nbsp; {team?.name?.toUpperCase()}</p>
+</div>
+
+<!-- TEAM HEADER -->
+<div class="thead">
+  <div class="wrap">
+    <div class="thead-in">
+      <span class="tcrest" style={`background:${team?.color}`}>{team?.code}</span>
+      <div>
+        <h1>{team?.name?.toUpperCase()}</h1>
+        <div class="tsub">2026 FALL SEASON{standing ? ` · PERINGKAT ${rank}` : ''}</div>
+      </div>
+    </div>
+
+    <div class="tstrip">
+      <div><span class="n tab-num">{standing?.match_wins || 0} – {standing?.match_losses || 0}</span><span class="k">MENANG – KALAH</span></div>
+      <div><span class="n tab-num">{totalKills} / {totalDeaths} / {totalAssists}</span><span class="k">KDA TIM</span></div>
+      <div><span class="n tab-num">{teamStat ? (teamStat.total_gold / 1000).toFixed(1) + 'K' : '—'}</span><span class="k">TOTAL GOLD</span></div>
+      <div><span class="n tab-num">{teamStat?.towers || 0}</span><span class="k">TOWER DIROBOHKAN</span></div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- ROSTER -->
+  <section id="roster" class="first">
+    <div class="sec-head">
+      <span class="idx">01 — PEMAIN</span>
+      <h2>ROSTER</h2>
+    </div>
+    <div class="sb-wrap">
+      <table>
+        <thead>
+          <tr><th>Pemain</th><th>Lane</th><th>K / D / A</th><th>KDA</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Gold</th><th>Teamfight</th></tr>
+        </thead>
+        <tbody>
+          {(playerStats || []).map(p => (
+            <tr>
+              <td class="p-name">{p.player_handle}{p.mvp_count > 0 ? ` <span class="tag j">MVP ×${p.mvp_count}</span>` : ''}</td>
+              <td class="p-role">—</td>
+              <td class="kda-cell">{p.kills} / {p.deaths} / {p.assists}</td>
+              <td class="tab-num">{Number(p.kda).toFixed(2)}</td>
+              <td class="tab-num">{nf(p.damage_dealt)}</td>
+              <td class="tab-num">{nf(p.damage_taken)}</td>
+              <td class="tab-num">{nf(p.gold)}</td>
+              <td class="tab-num">{p.avg_teamfight_rate}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- KONTRIBUSI -->
+  <section id="kontribusi">
+    <div class="sec-head">
+      <span class="idx">02 — PEMBAGIAN PERAN</span>
+      <h2>KONTRIBUSI DAMAGE</h2>
+      <p>Porsi damage tiap pemain terhadap total damage tim.</p>
+    </div>
+    {sortedByDealt.map(p => (
+      <div class="cbar-row">
+        <span class="cbar-name">{p.player_handle}</span>
+        <div class="cbar-track">
+          <div class="cbar-fill" style={`width:${(p.damage_dealt / maxDealt * 100).toFixed(1)}%;background:linear-gradient(90deg, ${team?.color}66, ${team?.color})`}></div>
+        </div>
+        <span class="cbar-val">{(p.damage_dealt / totalDealt * 100).toFixed(1)}%</span>
+      </div>
+    ))}
+
+    <div class="sec-head" style="margin-top:42px;">
+      <span class="idx">03 — GARIS DEPAN</span>
+      <h2>DAMAGE YANG DISERAP</h2>
+    </div>
+    {sortedByTaken.map(p => (
+      <div class="cbar-row">
+        <span class="cbar-name">{p.player_handle}</span>
+        <div class="cbar-track">
+          <div class="cbar-fill" style={`width:${(p.damage_taken / maxTaken * 100).toFixed(1)}%;background:linear-gradient(90deg, ${team?.color}66, ${team?.color})`}></div>
+        </div>
+        <span class="cbar-val">{(p.damage_taken / totalTaken * 100).toFixed(1)}%</span>
+      </div>
+    ))}
+  </section>
+
+  <!-- LAGA -->
+  <section id="laga">
+    <div class="sec-head">
+      <span class="idx">04 — RIWAYAT</span>
+      <h2>LAGA YANG DIJALANI</h2>
+    </div>
+    {(matchesRaw || []).map(m => {
+      const mr = matchLookup.get(m.id);
+      const aWins = mr?.team_a_games || 0;
+      const bWins = mr?.team_b_games || 0;
+      const aWon = aWins > bWins;
+      const isTeamA = m.team_a?.code === upperCode;
+      const won = isTeamA ? aWon : !aWon;
+      return (
+        <a class="mrow" href={`/match/${m.code.toLowerCase()}`}>
+          <span class="m-when">{m.played_on ? new Date(m.played_on).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : '—'}</span>
+          <span class="m-team">
+            <span class="crest" style={`background:${m.team_a?.color}`}>{m.team_a?.code}</span>
+            <span class={isTeamA && won ? 'won' : isTeamA ? 'lost' : !isTeamA && !won ? 'won' : 'lost'}>{m.team_a?.name?.toUpperCase()}</span>
+          </span>
+          <span class="m-score tab-num">{aWins} – {bWins}</span>
+          <span class="m-team r">
+            <span class="crest" style={`background:${m.team_b?.color}`}>{m.team_b?.code}</span>
+            <span class={!isTeamA && won ? 'won' : !isTeamA ? 'lost' : isTeamA && !won ? 'won' : 'lost'}>{m.team_b?.name?.toUpperCase()}</span>
+          </span>
+          <span class="m-go">LIHAT DETAIL</span>
+        </a>
+      );
+    })}
+  </section>
+
+</main>
+
+<script>
+const links = [...document.querySelectorAll('#nav a')];
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    if(en.isIntersecting){
+      links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + en.target.id));
+    }
+  });
+}, { rootMargin:'-25% 0px -65% 0px' });
+document.querySelectorAll('main section').forEach(s => spy.observe(s));
+</script>
+
+</Base>
