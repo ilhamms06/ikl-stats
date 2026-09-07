@@ -1,0 +1,6 @@
+services:
+  ikl-stats:
+    image: ghcr.io/ilhamms06/ikl-stats:latest
+    restart: unless-stopped
+    ports:
+      - "4003:80"
