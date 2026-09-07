@@ -1,0 +1,616 @@
+---
+import Base from '../../layouts/Base.astro';
+const navLinks = [
+  { href: '/', label: 'BERANDA' },
+  { href: '/admin/master-data', label: 'MASTER DATA' },
+];
+---
+
+<Base title="Tambah Pemain — Indonesia Kings Laga" navLinks={navLinks}>
+
+<!-- ============ LOGIN GATE ============ -->
+<div id="login-gate" style="display:none">
+  <div class="login-box">
+    <div class="login-icon">
+      <img src="/ikl-logo.png" alt="IKL" width="48" height="54" />
+    </div>
+    <h2 class="login-title">ADMIN LOGIN</h2>
+    <p class="login-sub">Masuk untuk menambah pemain</p>
+    <div id="login-error" class="adm-error" style="display:none"></div>
+    <form id="login-form" autocomplete="on">
+      <label class="adm-label" for="login-email">EMAIL</label>
+      <input class="adm-input" id="login-email" type="email" required autocomplete="email" placeholder="admin@example.com">
+      <label class="adm-label" for="login-pass">PASSWORD</label>
+      <input class="adm-input" id="login-pass" type="password" required autocomplete="current-password" placeholder="••••••••">
+      <button class="adm-btn primary full" type="submit" id="login-submit">MASUK</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MAIN UI ============ -->
+<div id="admin-ui" style="display:none">
+  <section class="first">
+    <div class="wrap">
+
+      <div class="adm-header">
+        <div>
+          <span class="sec-head"><span class="idx">ADMIN</span></span>
+          <h2>Tambah Pemain per Tim</h2>
+          <p class="adm-desc">Pilih tim, isi daftar pemain, lalu simpan sekaligus.</p>
+        </div>
+        <button class="adm-btn outline" id="btn-logout">LOGOUT</button>
+      </div>
+
+      <!-- Step 1: Select Team -->
+      <div id="step-team">
+        <label class="adm-label">PILIH TIM</label>
+        <div id="team-grid" class="team-grid"></div>
+        <div id="no-teams" class="adm-empty" style="display:none">Belum ada tim. Buat di <a href="/admin/master-data">Master Data</a>.</div>
+      </div>
+
+      <!-- Step 2: Player List -->
+      <div id="step-players" style="display:none">
+        <div class="selected-team-bar" id="selected-team-bar">
+          <div class="stb-info">
+            <div class="stb-avatar" id="stb-avatar"></div>
+            <div>
+              <span class="stb-name" id="stb-name"></span>
+              <span class="stb-sub" id="stb-sub"></span>
+            </div>
+          </div>
+          <button class="adm-btn sm outline" id="btn-change-team">GANTI TIM</button>
+        </div>
+
+        <div id="save-status" class="adm-success" style="display:none"></div>
+        <div id="save-error" class="adm-error" style="display:none"></div>
+
+        <div class="player-table-head">
+          <span class="pth-num">#</span>
+          <span class="pth-handle">HANDLE</span>
+          <span class="pth-name">NAMA ASLI</span>
+          <span class="pth-role">ROLE</span>
+          <span class="pth-nat">NEGARA</span>
+          <span class="pth-act"></span>
+        </div>
+        <div id="player-rows"></div>
+
+        <div class="adm-btn-row" style="margin-top:12px">
+          <button class="adm-btn outline" id="btn-add-row">+ TAMBAH BARIS</button>
+        </div>
+
+        <div class="adm-btn-row" style="margin-top:24px; border-top:1px solid var(--line); padding-top:20px">
+          <button class="adm-btn primary" id="btn-save-all">SIMPAN SEMUA PEMAIN</button>
+          <span class="save-count" id="save-count">0 pemain akan disimpan</span>
+        </div>
+
+        <!-- Existing players in this team -->
+        <div id="existing-section" style="margin-top:32px">
+          <h3 class="existing-title">PEMAIN SAAT INI DI TIM</h3>
+          <div id="existing-list" class="existing-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+</Base>
+
+<style>
+  /* ============ ADMIN PAGE STYLES ============ */
+  .login-box{
+    max-width:380px; margin:80px auto 60px; padding:38px 32px;
+    background:var(--ink-2); border:1px solid var(--line);
+    text-align:center;
+  }
+  .login-icon{ margin-bottom:18px; }
+  .login-title{
+    font-family:var(--display); font-size:24px; color:var(--gold-lite);
+    letter-spacing:0.04em; margin-bottom:6px;
+  }
+  .login-sub{
+    font-family:var(--cond); font-size:13px; color:var(--dim);
+    letter-spacing:0.08em; margin:0 0 22px;
+  }
+  .adm-label{
+    display:block; font-family:var(--cond); font-size:10.5px; font-weight:700;
+    letter-spacing:0.16em; color:var(--dim); margin:14px 0 5px;
+  }
+  .adm-input{
+    display:block; width:100%; font-family:var(--body); font-size:13px;
+    background:var(--ink); color:var(--bone); border:1px solid var(--line);
+    padding:9px 10px; outline:none;
+    transition:border-color .15s ease;
+  }
+  .adm-input:focus{ border-color:var(--gold); }
+  .adm-input::placeholder{ color:var(--dim); }
+  select.adm-input{
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236E5153' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center;
+    padding-right:28px; cursor:pointer;
+  }
+  .adm-error{
+    font-family:var(--cond); font-size:12.5px; color:var(--crimson-lite);
+    background:rgba(201,51,63,0.12); border:1px solid rgba(201,51,63,0.25);
+    padding:9px 14px; margin-bottom:10px; letter-spacing:0.04em;
+  }
+  .adm-success{
+    font-family:var(--cond); font-size:12.5px; color:#1f9d74;
+    background:rgba(31,157,116,0.10); border:1px solid rgba(31,157,116,0.25);
+    padding:9px 14px; margin-bottom:10px; letter-spacing:0.04em;
+  }
+  .adm-empty{
+    font-family:var(--cond); font-size:13px; color:var(--dim);
+    letter-spacing:0.06em; padding:30px 0; text-align:center;
+  }
+  .adm-empty a{ color:var(--gold); }
+  .adm-btn{
+    display:inline-block; font-family:var(--cond); font-size:12px; font-weight:700;
+    letter-spacing:0.12em; text-decoration:none; padding:11px 22px;
+    cursor:pointer; border:none;
+    transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .adm-btn.primary{ background:var(--crimson); color:#fff; border:1px solid var(--crimson-lite); }
+  .adm-btn.primary:hover{ background:var(--crimson-lite); }
+  .adm-btn.primary:disabled{ opacity:.5; cursor:not-allowed; }
+  .adm-btn.outline{ background:none; color:var(--gold-lite); border:1px solid var(--line-2); }
+  .adm-btn.outline:hover{ background:var(--gold); color:var(--ink); border-color:var(--gold); }
+  .adm-btn.danger{ background:none; color:var(--crimson-lite); border:1px solid rgba(201,51,63,0.3); }
+  .adm-btn.danger:hover{ background:var(--crimson); color:#fff; border-color:var(--crimson); }
+  .adm-btn.full{ width:100%; text-align:center; margin-top:20px; }
+  .adm-btn.sm{ padding:7px 14px; font-size:11px; }
+  .adm-btn-row{ display:flex; gap:10px; align-items:center; }
+  .adm-header{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:18px; padding:28px 0 20px; flex-wrap:wrap;
+  }
+  .adm-desc{ font-size:14px; color:var(--muted); margin:6px 0 0; }
+
+  /* --- Team Grid --- */
+  .team-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
+    gap:10px; margin-top:10px;
+  }
+  .team-card{
+    display:flex; align-items:center; gap:12px; padding:14px 16px;
+    background:var(--ink-2); border:1px solid var(--line);
+    cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .team-card:hover{ border-color:var(--gold); background:var(--hover-bg); }
+  .team-card .tc-avatar{
+    width:36px; height:36px; border-radius:4px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--display); font-size:14px; color:#fff; flex:none;
+  }
+  .team-card .tc-name{
+    font-family:var(--cond); font-size:14px; font-weight:600; color:var(--bone);
+    letter-spacing:0.04em;
+  }
+  .team-card .tc-code{
+    font-family:var(--cond); font-size:10.5px; color:var(--dim);
+    letter-spacing:0.10em;
+  }
+
+  /* --- Selected Team Bar --- */
+  .selected-team-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:14px; padding:14px 18px; margin-bottom:20px;
+    background:var(--ink-2); border:1px solid var(--line);
+  }
+  .stb-info{ display:flex; align-items:center; gap:12px; }
+  .stb-avatar{
+    width:36px; height:36px; border-radius:4px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--display); font-size:14px; color:#fff; flex:none;
+  }
+  .stb-name{
+    font-family:var(--cond); font-size:15px; font-weight:700; color:var(--bone);
+    letter-spacing:0.04em;
+  }
+  .stb-sub{
+    font-family:var(--cond); font-size:11px; color:var(--dim);
+    letter-spacing:0.08em; margin-left:8px;
+  }
+
+  /* --- Player Table --- */
+  .player-table-head{
+    display:grid; grid-template-columns:30px 1fr 1fr 120px 70px 36px;
+    gap:8px; padding:8px 10px; margin-top:10px;
+    font-family:var(--cond); font-size:10px; font-weight:700;
+    letter-spacing:0.14em; color:var(--dim);
+    border-bottom:1px solid var(--line);
+  }
+  .player-row{
+    display:grid; grid-template-columns:30px 1fr 1fr 120px 70px 36px;
+    gap:8px; padding:6px 10px; align-items:center;
+    border-bottom:1px solid var(--row-line);
+  }
+  .player-row .pr-num{
+    font-family:var(--cond); font-size:12px; font-weight:600;
+    color:var(--dim); text-align:center;
+  }
+  .player-row .adm-input{ font-size:13px; padding:7px 8px; }
+  .pr-remove{
+    background:none; border:none; color:var(--dim); cursor:pointer;
+    font-size:18px; padding:0; line-height:1;
+    transition:color .15s ease;
+  }
+  .pr-remove:hover{ color:var(--crimson-lite); }
+
+  .save-count{
+    font-family:var(--cond); font-size:12px; color:var(--dim);
+    letter-spacing:0.06em;
+  }
+
+  /* --- Existing Players --- */
+  .existing-title{
+    font-family:var(--cond); font-size:11px; font-weight:700;
+    letter-spacing:0.14em; color:var(--dim); margin-bottom:10px;
+  }
+  .existing-list{ display:flex; flex-direction:column; gap:4px; }
+  .existing-player{
+    display:flex; align-items:center; gap:10px; padding:8px 12px;
+    background:var(--ink-2); border:1px solid var(--row-line);
+    font-family:var(--cond); font-size:13px; color:var(--bone);
+  }
+  .existing-player .ep-role{
+    font-size:10px; font-weight:700; letter-spacing:0.10em;
+    color:var(--gold); background:var(--hover-bg-2);
+    padding:3px 8px;
+  }
+  .existing-player .ep-name{
+    color:var(--dim); font-size:12px; margin-left:4px;
+  }
+
+  @media(max-width:600px){
+    .player-table-head, .player-row{
+      grid-template-columns:24px 1fr 1fr 90px 50px 30px;
+      gap:4px; padding:6px 4px;
+    }
+    .player-table-head{ font-size:8px; }
+    .player-row .adm-input{ font-size:12px; padding:6px 5px; }
+    .team-grid{ grid-template-columns:1fr; }
+  }
+</style>
+
+<script>
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+let teams: any[] = [];
+let selectedTeam: any = null;
+let activeSeasonId: string | null = null;
+let rowCounter = 0;
+
+function show(id: string) { document.getElementById(id)!.style.display = 'block'; }
+function hide(id: string) { document.getElementById(id)!.style.display = 'none'; }
+function esc(str: string): string {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Auth ──
+async function checkAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    hide('login-gate');
+    show('admin-ui');
+    await loadData();
+  } else {
+    show('login-gate');
+    hide('admin-ui');
+  }
+}
+
+document.getElementById('login-form')!.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('login-error')!;
+  errEl.style.display = 'none';
+  const email = (document.getElementById('login-email') as HTMLInputElement).value;
+  const pass  = (document.getElementById('login-pass') as HTMLInputElement).value;
+  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  hide('login-gate');
+  show('admin-ui');
+  await loadData();
+});
+
+document.getElementById('btn-logout')!.addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  location.reload();
+});
+
+// ── Load Data ──
+async function loadData() {
+  const { data: seasons } = await supabase.from('seasons').select('*').eq('is_active', true).limit(1);
+  activeSeasonId = seasons?.[0]?.id || null;
+
+  const { data: tData } = await supabase.from('teams').select('*').order('code');
+  teams = tData || [];
+
+  if (!teams.length) {
+    show('no-teams');
+    return;
+  }
+
+  renderTeamGrid();
+}
+
+function renderTeamGrid() {
+  const grid = document.getElementById('team-grid')!;
+  grid.innerHTML = teams.map((t: any) => `
+    <div class="team-card" data-id="${t.id}">
+      <div class="tc-avatar" style="background:${esc(t.color || '#555')}">${esc(t.code.slice(0,2))}</div>
+      <div>
+        <div class="tc-name">${esc(t.name)}</div>
+        <div class="tc-code">${esc(t.code)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.team-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = (card as HTMLElement).dataset.id!;
+      selectTeam(id);
+    });
+  });
+}
+
+async function selectTeam(teamId: string) {
+  selectedTeam = teams.find((t: any) => t.id === teamId);
+  if (!selectedTeam) return;
+
+  hide('step-team');
+  show('step-players');
+
+  const avatar = document.getElementById('stb-avatar')!;
+  avatar.style.background = selectedTeam.color || '#555';
+  avatar.textContent = selectedTeam.code.slice(0, 2);
+  document.getElementById('stb-name')!.textContent = selectedTeam.name;
+  document.getElementById('stb-sub')!.textContent = selectedTeam.code;
+
+  // Clear rows and add 5 empty rows
+  const container = document.getElementById('player-rows')!;
+  container.innerHTML = '';
+  rowCounter = 0;
+  for (let i = 0; i < 5; i++) addRow();
+
+  updateSaveCount();
+  await loadExistingPlayers();
+}
+
+document.getElementById('btn-change-team')!.addEventListener('click', () => {
+  selectedTeam = null;
+  show('step-team');
+  hide('step-players');
+  hide('save-status');
+  hide('save-error');
+});
+
+// ── Player Rows ──
+function addRow() {
+  rowCounter++;
+  const container = document.getElementById('player-rows')!;
+  const row = document.createElement('div');
+  row.className = 'player-row';
+  row.dataset.idx = String(rowCounter);
+  row.innerHTML = `
+    <span class="pr-num">${rowCounter}</span>
+    <input class="adm-input pr-handle" type="text" placeholder="Handle" />
+    <input class="adm-input pr-name" type="text" placeholder="Nama asli" />
+    <select class="adm-input pr-role">
+      <option value="">— Role —</option>
+      <option value="clash_lane">Clash Lane</option>
+      <option value="jungle">Jungle</option>
+      <option value="mid_lane">Mid Lane</option>
+      <option value="farm_lane">Farm Lane</option>
+      <option value="roam">Roam</option>
+    </select>
+    <input class="adm-input pr-nat" type="text" placeholder="ID" value="ID" />
+    <button class="pr-remove" title="Hapus baris">&times;</button>
+  `;
+  container.appendChild(row);
+
+  row.querySelector('.pr-remove')!.addEventListener('click', () => {
+    row.remove();
+    renumberRows();
+    updateSaveCount();
+  });
+
+  row.querySelector('.pr-handle')!.addEventListener('input', () => updateSaveCount());
+}
+
+function renumberRows() {
+  const rows = document.querySelectorAll('.player-row');
+  rows.forEach((r, i) => {
+    r.querySelector('.pr-num')!.textContent = String(i + 1);
+  });
+}
+
+function updateSaveCount() {
+  const rows = document.querySelectorAll('.player-row');
+  let count = 0;
+  rows.forEach(r => {
+    const handle = (r.querySelector('.pr-handle') as HTMLInputElement).value.trim();
+    if (handle) count++;
+  });
+  document.getElementById('save-count')!.textContent = `${count} pemain akan disimpan`;
+}
+
+document.getElementById('btn-add-row')!.addEventListener('click', () => {
+  addRow();
+  updateSaveCount();
+});
+
+// ── Save All ──
+document.getElementById('btn-save-all')!.addEventListener('click', async () => {
+  const errEl = document.getElementById('save-error')!;
+  const okEl  = document.getElementById('save-status')!;
+  errEl.style.display = 'none';
+  okEl.style.display = 'none';
+
+  if (!selectedTeam || !activeSeasonId) {
+    errEl.textContent = 'Pilih tim dan pastikan season aktif tersedia.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const rows = document.querySelectorAll('.player-row');
+  const entries: { handle: string; display_name: string | null; role: string | null; nationality: string | null }[] = [];
+
+  rows.forEach(r => {
+    const handle = (r.querySelector('.pr-handle') as HTMLInputElement).value.trim();
+    if (!handle) return;
+    const display_name = (r.querySelector('.pr-name') as HTMLInputElement).value.trim() || null;
+    const role = (r.querySelector('.pr-role') as HTMLSelectElement).value || null;
+    const nationality = (r.querySelector('.pr-nat') as HTMLInputElement).value.trim() || null;
+    entries.push({ handle, display_name, role, nationality });
+  });
+
+  if (!entries.length) {
+    errEl.textContent = 'Isi minimal 1 handle pemain.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Check duplicates
+  const handles = entries.map(e => e.handle.toLowerCase());
+  const dupes = handles.filter((h, i) => handles.indexOf(h) !== i);
+  if (dupes.length) {
+    errEl.textContent = `Handle duplikat: ${[...new Set(dupes)].join(', ')}`;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btn-save-all') as HTMLButtonElement;
+  btn.disabled = true;
+  btn.textContent = 'MENYIMPAN...';
+
+  let saved = 0;
+  let errors: string[] = [];
+
+  for (const entry of entries) {
+    // Check if player with this handle already exists
+    const { data: existing } = await supabase
+      .from('players')
+      .select('id')
+      .ilike('handle', entry.handle)
+      .maybeSingle();
+
+    let playerId: string;
+
+    if (existing) {
+      playerId = existing.id;
+    } else {
+      const { data, error } = await supabase.from('players').insert({
+        handle: entry.handle,
+        display_name: entry.display_name,
+        nationality: entry.nationality,
+      }).select().single();
+
+      if (error) {
+        errors.push(`${entry.handle}: ${error.message}`);
+        continue;
+      }
+      playerId = data.id;
+    }
+
+    // Create roster entry if role is set
+    if (entry.role) {
+      // Check if roster entry already exists for this season
+      const { data: existingRoster } = await supabase
+        .from('team_rosters')
+        .select('id')
+        .eq('season_id', activeSeasonId)
+        .eq('player_id', playerId)
+        .is('left_on', null)
+        .maybeSingle();
+
+      if (existingRoster) {
+        await supabase.from('team_rosters').update({
+          team_id: selectedTeam.id,
+          primary_role: entry.role,
+        }).eq('id', existingRoster.id);
+      } else {
+        const { error: rErr } = await supabase.from('team_rosters').insert({
+          season_id: activeSeasonId,
+          team_id: selectedTeam.id,
+          player_id: playerId,
+          primary_role: entry.role,
+          joined_on: new Date().toISOString().slice(0, 10),
+        });
+        if (rErr) {
+          errors.push(`${entry.handle} roster: ${rErr.message}`);
+          continue;
+        }
+      }
+    }
+    saved++;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'SIMPAN SEMUA PEMAIN';
+
+  if (errors.length) {
+    errEl.innerHTML = `<strong>${saved} berhasil, ${errors.length} gagal:</strong><br>${errors.join('<br>')}`;
+    errEl.style.display = 'block';
+  }
+  if (saved > 0) {
+    okEl.textContent = `${saved} pemain berhasil disimpan ke ${selectedTeam.code}!`;
+    okEl.style.display = 'block';
+
+    // Clear saved rows, keep empty ones
+    const allRows = document.querySelectorAll('.player-row');
+    allRows.forEach(r => {
+      const handle = (r.querySelector('.pr-handle') as HTMLInputElement).value.trim();
+      if (handle && !errors.some(e => e.startsWith(handle + ':'))) {
+        (r.querySelector('.pr-handle') as HTMLInputElement).value = '';
+        (r.querySelector('.pr-name') as HTMLInputElement).value = '';
+        (r.querySelector('.pr-role') as HTMLSelectElement).value = '';
+        (r.querySelector('.pr-nat') as HTMLInputElement).value = 'ID';
+      }
+    });
+    updateSaveCount();
+    await loadExistingPlayers();
+  }
+});
+
+// ── Existing Players ──
+async function loadExistingPlayers() {
+  if (!selectedTeam || !activeSeasonId) return;
+
+  const { data: rosterData } = await supabase
+    .from('team_rosters')
+    .select('*, player:players(*)')
+    .eq('team_id', selectedTeam.id)
+    .eq('season_id', activeSeasonId)
+    .is('left_on', null);
+
+  const list = document.getElementById('existing-list')!;
+
+  if (!rosterData?.length) {
+    list.innerHTML = '<div class="adm-empty">Belum ada pemain di tim ini.</div>';
+    return;
+  }
+
+  const roleMap: Record<string,string> = {
+    clash_lane: 'CLASH', jungle: 'JUNGLE', mid_lane: 'MID', farm_lane: 'FARM', roam: 'ROAM',
+  };
+
+  list.innerHTML = rosterData.map((r: any) => `
+    <div class="existing-player">
+      <span class="ep-role">${esc(roleMap[r.primary_role] || r.primary_role || '—')}</span>
+      <strong>${esc(r.player?.handle || '—')}</strong>
+      ${r.player?.display_name ? `<span class="ep-name">${esc(r.player.display_name)}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+checkAuth();
+</script>
