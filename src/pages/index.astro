@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import MedalSvg from '../components/MedalSvg.astro';
 import Leaderboard from '../components/Leaderboard.astro';
 import { supabase } from '../lib/supabase';
 
@@ -43,9 +42,8 @@ const { data: matches } = await supabase
 
 const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
 
+const totalMatches = matches?.length || 0;
 const totalGames = standings?.reduce((s, t) => s + (t.game_wins || 0), 0) / 2 || 0;
-const totalPlayers = players?.length || 0;
-const totalDamage = players?.reduce((s, p) => s + (p.damage_dealt || 0), 0) || 0;
 
 const matchLookup = new Map();
 matchResults?.forEach(m => matchLookup.set(m.match_id, m));
@@ -73,15 +71,13 @@ const teamAgg = (teamStats || []).map(t => {
 <!-- HERO -->
 <div class="hero">
   <div class="wrap">
-    <MedalSvg class="hero-medal" />
+    <img class="hero-medal" src="/ikl-logo.png" alt="IKL" width="80" height="90" />
     <div class="eyebrow">HONOR OF KINGS · 2026 FALL SEASON</div>
     <h1>KINGS LAGA<span class="sub">SETIAP LAGA TERCATAT, SETIAP ANGKA PUNYA CERITA</span></h1>
 
     <div class="recap">
-      <div><span class="n tab-num">{totalGames}</span><span class="k">GAME TERCATAT</span></div>
-      <div><span class="n tab-num">{totalPlayers}</span><span class="k">PEMAIN TERDATA</span></div>
-      <div><span class="n tab-num">{nf(totalDamage / 1000)}<span style="font-size:.6em">RB</span></span><span class="k">TOTAL DAMAGE</span></div>
-      <div><span class="n tab-num">—</span><span class="k">GAME TERCEPAT</span></div>
+      <div><span class="n tab-num">{totalMatches}</span><span class="k">TOTAL MATCH</span></div>
+      <div><span class="n tab-num">{totalGames}</span><span class="k">TOTAL GAME</span></div>
     </div>
   </div>
 </div>
