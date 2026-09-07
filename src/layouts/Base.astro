@@ -1,6 +1,7 @@
 ---
 import Topbar from '../components/Topbar.astro';
 import Footer from '../components/Footer.astro';
+import '../styles/ikl.css';
 
 interface Props {
   title: string;
@@ -19,7 +20,12 @@ const { title, navLinks = [], source } = Astro.props;
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles/ikl.css">
+  <script is:inline>
+    (function(){
+      var t = localStorage.getItem('ikl-theme');
+      if(t === 'light') document.documentElement.setAttribute('data-theme','light');
+    })();
+  </script>
 </head>
 <body>
   <div class="layer">
@@ -27,5 +33,18 @@ const { title, navLinks = [], source } = Astro.props;
     <slot />
     <Footer source={source} />
   </div>
+  <script is:inline>
+    document.getElementById('themeToggle').addEventListener('click', function(){
+      var html = document.documentElement;
+      var isLight = html.getAttribute('data-theme') === 'light';
+      if(isLight){
+        html.removeAttribute('data-theme');
+        localStorage.removeItem('ikl-theme');
+      } else {
+        html.setAttribute('data-theme','light');
+        localStorage.setItem('ikl-theme','light');
+      }
+    });
+  </script>
 </body>
 </html>
