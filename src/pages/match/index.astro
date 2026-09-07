@@ -1,0 +1,322 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const navLinks = [
+  { href: '#duel', label: 'DUEL LANE' },
+  { href: '#scoreboard', label: 'SCOREBOARD' },
+  { href: '#objektif', label: 'OBJEKTIF' },
+  { href: '#mvp', label: 'MVP' },
+];
+---
+
+<Base title="Match Detail — Indonesia Kings Laga" navLinks={navLinks}>
+
+<div class="wrap">
+  <p class="crumb"><a href="/">PERTANDINGAN</a> &nbsp;/&nbsp; <span id="crumb-match"></span></p>
+</div>
+
+<!-- SCOREBOARD HERO -->
+<div class="board">
+  <div class="wrap">
+    <div class="eyebrow" id="board-eyebrow"></div>
+    <div class="board-grid" id="board-grid"></div>
+    <div class="board-time">
+      <div class="k">GAME TIME</div>
+      <div class="v tab-num" id="board-time">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="games" id="game-btns"></div>
+</div>
+
+<main class="wrap">
+
+  <!-- DUEL -->
+  <section id="duel" class="first">
+    <div class="sec-head">
+      <span class="idx">01 — HEAD TO HEAD</span>
+      <h2>DUEL PER LANE</h2>
+      <p>Membandingkan pemain yang berhadapan langsung di lane yang sama.</p>
+    </div>
+    <div id="duel-content"></div>
+  </section>
+
+  <!-- SCOREBOARD -->
+  <section id="scoreboard">
+    <div class="sec-head">
+      <span class="idx">02 — ANGKA MENTAH</span>
+      <h2>SCOREBOARD LENGKAP</h2>
+    </div>
+    <div id="sb-team-a"></div>
+    <div id="sb-team-b"></div>
+  </section>
+
+  <!-- OBJEKTIF -->
+  <section id="objektif">
+    <div class="sec-head">
+      <span class="idx">03 — KONTROL MAP</span>
+      <h2>PEREBUTAN OBJEKTIF</h2>
+      <p>Setiap balok mewakili satu objektif yang berhasil diambil.</p>
+    </div>
+    <div id="obj-content"></div>
+  </section>
+
+  <!-- MVP -->
+  <section id="mvp">
+    <div class="sec-head">
+      <span class="idx">04 — PEMAIN TERBAIK</span>
+      <h2 id="mvp-title">MVP</h2>
+    </div>
+    <div id="mvp-content"></div>
+  </section>
+
+</main>
+
+<script>
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
+const esc = (s: string) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+const kdaRatio = (k: number, d: number, a: number) => ((k + a) / Math.max(d, 1)).toFixed(2);
+const formatDuration = (sec: number) => { const m = Math.floor(sec / 60); const s = sec % 60; return `${m}:${s.toString().padStart(2, '0')}`; };
+
+const ROLE_LABELS: Record<string, string> = {
+  clash_lane: 'Clash Lane', jungle: 'Jungle', mid_lane: 'Mid Lane',
+  farm_lane: 'Farm Lane', roam: 'Roam'
+};
+
+const ROLE_ORDER = ['clash_lane', 'jungle', 'mid_lane', 'farm_lane', 'roam'];
+
+const pathParts = window.location.pathname.split('/').filter(Boolean);
+const matchCode = (pathParts[1] || '').toUpperCase();
+
+async function loadMatch() {
+  if (!matchCode) return;
+
+  const { data: match } = await supabase
+    .from('matches')
+    .select('*, team_a:teams!team_a_id(id, code, name, color), team_b:teams!team_b_id(id, code, name, color)')
+    .eq('code', matchCode)
+    .single();
+
+  if (!match) {
+    document.getElementById('crumb-match')!.textContent = 'MATCH TIDAK DITEMUKAN';
+    return;
+  }
+
+  const { data: games } = await supabase
+    .from('games')
+    .select('*, winner:teams!winner_team_id(code, name)')
+    .eq('match_id', match.id)
+    .order('game_number');
+
+  const { data: gameTeams } = await supabase
+    .from('game_teams')
+    .select('*')
+    .in('game_id', (games || []).map((g: any) => g.id));
+
+  const { data: gamePlayers } = await supabase
+    .from('v_game_player_stats')
+    .select('*')
+    .eq('match_id', match.id)
+    .order('game_number')
+    .order('role');
+
+  const teamA = match.team_a;
+  const teamB = match.team_b;
+  const num = match.code?.replace('M', '');
+
+  const aWins = (games || []).filter((g: any) => g.winner?.code === teamA?.code).length;
+  const bWins = (games || []).filter((g: any) => g.winner?.code === teamB?.code).length;
+  const aWon = aWins >= bWins;
+
+  document.title = `${teamA?.name} vs ${teamB?.name} — Match ${num} · Indonesia Kings Laga`;
+  document.getElementById('crumb-match')!.textContent = `MATCH ${num} — ${teamA?.name?.toUpperCase()} VS ${teamB?.name?.toUpperCase()}`;
+  document.getElementById('board-eyebrow')!.textContent = `REGULAR SEASON · BEST OF 5 · MATCH ${num}`;
+
+  // Board Grid
+  document.getElementById('board-grid')!.innerHTML = `
+    <div class="verdict ${aWon ? 'win' : 'lose'}">${aWon ? 'VICTORY' : 'DEFEAT'}<span class="sq">${esc((teamA?.name || '').toUpperCase())}</span></div>
+    <div class="score-core">
+      <span class="sc-tag">${esc(teamA?.code || '')}</span>
+      <span class="sc-num tab-num">${aWins}</span>
+      <img src="/ikl-logo.png" alt="" class="medal" width="32" height="36" />
+      <span class="sc-num tab-num">${bWins}</span>
+      <span class="sc-tag">${esc(teamB?.code || '')}</span>
+    </div>
+    <div class="verdict ${!aWon ? 'win' : 'lose'}">${!aWon ? 'VICTORY' : 'DEFEAT'}<span class="sq">${esc((teamB?.name || '').toUpperCase())}</span></div>
+  `;
+
+  // Game buttons
+  let activeGameIdx = 0;
+  function renderGame(idx: number) {
+    activeGameIdx = idx;
+    const g = (games || [])[idx];
+    if (!g) return;
+
+    document.getElementById('board-time')!.textContent = formatDuration(g.duration_seconds);
+
+    // highlight active button
+    document.querySelectorAll('#game-btns .gbtn').forEach((b, i) => {
+      b.classList.toggle('on', i === idx);
+    });
+
+    const gid = g.id;
+    const pA = (gamePlayers || []).filter((p: any) => p.game_id === gid && p.team_code === teamA?.code);
+    const pB = (gamePlayers || []).filter((p: any) => p.game_id === gid && p.team_code === teamB?.code);
+    const gtA = (gameTeams || []).find((gt: any) => gt.game_id === gid && gt.team_id === teamA?.id);
+    const gtB = (gameTeams || []).find((gt: any) => gt.game_id === gid && gt.team_id === teamB?.id);
+
+    renderDuel(pA, pB, teamA, teamB);
+    renderScoreboard(pA, pB, teamA, teamB, gtA, gtB);
+    renderObjectives(gtA, gtB, teamA, teamB);
+    renderMVP(gamePlayers, gid, g.game_number);
+  }
+
+  const btnsEl = document.getElementById('game-btns')!;
+  btnsEl.innerHTML = (games || []).map((g: any, i: number) => `
+    <button class="gbtn${i === 0 ? ' on' : ''}" data-idx="${i}">
+      GAME ${g.game_number}
+      <small>${formatDuration(g.duration_seconds)} · ${esc(g.winner?.code || '')} MENANG</small>
+    </button>`).join('') +
+    Array.from({ length: Math.max(0, 5 - (games?.length || 0)) }, (_, i) => `
+      <button class="gbtn" disabled>GAME ${(games?.length || 0) + i + 1}<small>BELUM DIINPUT</small></button>`).join('');
+
+  btnsEl.querySelectorAll('.gbtn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => renderGame(Number((btn as HTMLElement).dataset.idx)));
+  });
+
+  if (games?.length) renderGame(0);
+
+  function renderDuel(pA: any[], pB: any[], tA: any, tB: any) {
+    const el = document.getElementById('duel-content')!;
+    const roles = ROLE_ORDER.filter(r => pA.some((p: any) => p.role === r) || pB.some((p: any) => p.role === r));
+    el.innerHTML = roles.map(role => {
+      const a = pA.find((p: any) => p.role === role);
+      const b = pB.find((p: any) => p.role === role);
+      if (!a && !b) return '';
+      return `
+        <div class="duel">
+          <div class="duel-lane">${esc(ROLE_LABELS[role] || role)}</div>
+          <div class="duel-pair">
+            <div class="duel-side l">
+              <span class="duel-name" style="color:${esc(tA?.color || '')}">${esc(a?.player_handle || '—')}</span>
+              <span class="duel-kda">${a ? `${a.kills}/${a.deaths}/${a.assists}` : '—'}</span>
+              <span class="duel-dmg">${a ? nf(a.damage_dealt) + ' DMG' : ''}</span>
+            </div>
+            <span class="duel-vs">VS</span>
+            <div class="duel-side r">
+              <span class="duel-name" style="color:${esc(tB?.color || '')}">${esc(b?.player_handle || '—')}</span>
+              <span class="duel-kda">${b ? `${b.kills}/${b.deaths}/${b.assists}` : '—'}</span>
+              <span class="duel-dmg">${b ? nf(b.damage_dealt) + ' DMG' : ''}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderScoreboard(pA: any[], pB: any[], tA: any, tB: any, gtA: any, gtB: any) {
+    const goldA = gtA?.total_gold || 0;
+    const goldB = gtB?.total_gold || 0;
+    const totalKA = pA.reduce((s: number, p: any) => s + p.kills, 0);
+    const totalDA = pA.reduce((s: number, p: any) => s + p.deaths, 0);
+    const totalAA = pA.reduce((s: number, p: any) => s + p.assists, 0);
+    const totalKB = pB.reduce((s: number, p: any) => s + p.kills, 0);
+    const totalDB = pB.reduce((s: number, p: any) => s + p.deaths, 0);
+    const totalAB = pB.reduce((s: number, p: any) => s + p.assists, 0);
+
+    function sbTable(players: any[], teamName: string, teamColor: string, tK: number, tD: number, tA: number, gold: number) {
+      return `
+        <div class="sb-title" style="background:linear-gradient(90deg, ${esc(teamColor)}48, transparent)">
+          <span class="d" style="background:${esc(teamColor)}"></span>
+          ${esc(teamName.toUpperCase())} — ${tK} / ${tD} / ${tA} · ${(gold / 1000).toFixed(1)}K GOLD
+        </div>
+        <div class="sb-wrap"><table>
+          <thead><tr><th>Pemain</th><th>Lane</th><th>K / D / A</th><th>KDA</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Gold</th><th>Teamfight</th></tr></thead>
+          <tbody>${players.map((p: any) => `
+            <tr>
+              <td class="p-name">${esc(p.player_handle)}${p.is_mvp ? ' <span class="tag j">MVP</span>' : ''}</td>
+              <td class="p-role">${esc(ROLE_LABELS[p.role] || p.role)}</td>
+              <td class="kda-cell">${p.kills} / ${p.deaths} / ${p.assists}</td>
+              <td class="tab-num">${kdaRatio(p.kills, p.deaths, p.assists)}</td>
+              <td class="tab-num">${nf(p.damage_dealt)}</td>
+              <td class="tab-num">${nf(p.damage_taken)}</td>
+              <td class="tab-num">${nf(p.gold)}</td>
+              <td class="tab-num${p.teamfight_rate === 0 ? ' z' : ''}">${p.teamfight_rate}%</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`;
+    }
+
+    document.getElementById('sb-team-a')!.innerHTML = sbTable(pA, tA?.name || '', tA?.color || '', totalKA, totalDA, totalAA, goldA);
+    document.getElementById('sb-team-b')!.innerHTML = sbTable(pB, tB?.name || '', tB?.color || '', totalKB, totalDB, totalAB, goldB);
+  }
+
+  function renderObjectives(gtA: any, gtB: any, tA: any, tB: any) {
+    const objs = [
+      { label: 'TYRANT', a: gtA?.tyrant || 0, b: gtB?.tyrant || 0, cap: 3 },
+      { label: 'SHADOW TYRANT', a: gtA?.shadow_tyrant || 0, b: gtB?.shadow_tyrant || 0, cap: 3 },
+      { label: 'TEMPEST DRAGON', a: gtA?.tempest_dragon || 0, b: gtB?.tempest_dragon || 0, cap: 3 },
+      { label: 'OVERLORD', a: gtA?.overlord || 0, b: gtB?.overlord || 0, cap: 3 },
+      { label: 'SHADOW OVERLORD', a: gtA?.shadow_overlord || 0, b: gtB?.shadow_overlord || 0, cap: 3 },
+      { label: 'TOWER', a: gtA?.towers || 0, b: gtB?.towers || 0, cap: 9 },
+    ];
+    const cA = tA?.color || '#E0A83C';
+    const cB = tB?.color || '#B02233';
+    document.getElementById('obj-content')!.innerHTML = objs.map(o => {
+      const blocksA = Array.from({length: o.cap}, (_,i) => `<span class="obj-blk${i < o.a ? ' on' : ''}" style="${i < o.a ? 'background:'+cA : ''}"></span>`).reverse().join('');
+      const blocksB = Array.from({length: o.cap}, (_,i) => `<span class="obj-blk${i < o.b ? ' on' : ''}" style="${i < o.b ? 'background:'+cB : ''}"></span>`).join('');
+      return `
+        <div class="obj-row">
+          <div class="obj-side l"><div class="obj-blocks">${blocksA}</div><span class="obj-count${o.a===0?' nil':''}">${o.a}</span></div>
+          <span class="obj-label">${esc(o.label)}</span>
+          <div class="obj-side r"><span class="obj-count${o.b===0?' nil':''}">${o.b}</span><div class="obj-blocks">${blocksB}</div></div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderMVP(allPlayers: any[], gameId: string, gameNum: number) {
+    const mvp = (allPlayers || []).find((p: any) => p.game_id === gameId && p.is_mvp);
+    document.getElementById('mvp-title')!.textContent = `MVP GAME ${gameNum}`;
+    if (!mvp) {
+      document.getElementById('mvp-content')!.innerHTML = '<p style="color:var(--dim)">Belum ada MVP.</p>';
+      return;
+    }
+    document.getElementById('mvp-content')!.innerHTML = `
+      <div class="mvp-card">
+        <div class="mvp-word"><span>INDOHONOR</span>MVP</div>
+        <div>
+          <div class="mvp-who">${esc(mvp.player_handle)}${mvp.hero_name ? ` — ${esc(mvp.hero_name.toUpperCase())}` : ''}</div>
+          <div class="mvp-sub">${esc((mvp.team_name || '').toUpperCase())} · ${esc(ROLE_LABELS[mvp.role] || mvp.role)}</div>
+          <div class="mvp-stats">
+            <div><span class="k">KDA</span><span class="v tab-num">${mvp.kills} / ${mvp.deaths} / ${mvp.assists}</span></div>
+            <div><span class="k">DAMAGE</span><span class="v tab-num">${nf(mvp.damage_dealt)}</span></div>
+            <div><span class="k">DMG TAKEN</span><span class="v tab-num">${nf(mvp.damage_taken)}</span></div>
+            <div><span class="k">TOTAL GOLD</span><span class="v tab-num">${nf(mvp.gold)}</span></div>
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+loadMatch();
+
+const links = [...document.querySelectorAll('#nav a')];
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    if (en.isIntersecting) {
+      links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + en.target.id));
+    }
+  });
+}, { rootMargin: '-25% 0px -65% 0px' });
+document.querySelectorAll('main section').forEach(s => spy.observe(s));
+</script>
+
+</Base>

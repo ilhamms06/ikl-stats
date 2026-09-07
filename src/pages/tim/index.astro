@@ -1,0 +1,221 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const navLinks = [
+  { href: '#roster', label: 'ROSTER' },
+  { href: '#kontribusi', label: 'KONTRIBUSI' },
+  { href: '#laga', label: 'LAGA' },
+];
+---
+
+<Base title="Profil Tim — Indonesia Kings Laga" navLinks={navLinks}>
+
+<div class="wrap">
+  <p class="crumb"><a href="/">TIM</a> &nbsp;/&nbsp; <span id="crumb-team"></span></p>
+</div>
+
+<!-- TEAM HEADER -->
+<div class="thead">
+  <div class="wrap">
+    <div class="thead-in" id="thead-in"></div>
+    <div class="tstrip" id="tstrip"></div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- ROSTER -->
+  <section id="roster" class="first">
+    <div class="sec-head">
+      <span class="idx">01 — PEMAIN</span>
+      <h2>ROSTER</h2>
+    </div>
+    <div class="sb-wrap">
+      <table>
+        <thead>
+          <tr><th>Pemain</th><th>Lane</th><th>K / D / A</th><th>KDA</th><th>Dmg Dealt</th><th>Dmg Taken</th><th>Gold</th><th>Teamfight</th></tr>
+        </thead>
+        <tbody id="roster-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- KONTRIBUSI -->
+  <section id="kontribusi">
+    <div class="sec-head">
+      <span class="idx">02 — PEMBAGIAN PERAN</span>
+      <h2>KONTRIBUSI DAMAGE</h2>
+      <p>Porsi damage tiap pemain terhadap total damage tim.</p>
+    </div>
+    <div id="dealt-bars"></div>
+
+    <div class="sec-head" style="margin-top:42px;">
+      <span class="idx">03 — GARIS DEPAN</span>
+      <h2>DAMAGE YANG DISERAP</h2>
+    </div>
+    <div id="taken-bars"></div>
+  </section>
+
+  <!-- LAGA -->
+  <section id="laga">
+    <div class="sec-head">
+      <span class="idx">04 — RIWAYAT</span>
+      <h2>LAGA YANG DIJALANI</h2>
+    </div>
+    <div id="match-history"></div>
+  </section>
+
+</main>
+
+<script>
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
+const esc = (s: string) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+const pathParts = window.location.pathname.split('/').filter(Boolean);
+const teamCode = (pathParts[1] || '').toUpperCase();
+
+async function loadTeam() {
+  if (!teamCode) return;
+
+  const [
+    { data: team },
+    { data: standing },
+    { data: teamStat },
+    { data: playerStats },
+    { data: matchResults },
+  ] = await Promise.all([
+    supabase.from('teams').select('*').eq('code', teamCode).single(),
+    supabase.from('v_standings').select('*').eq('team_code', teamCode).maybeSingle(),
+    supabase.from('v_team_season_stats').select('*').eq('team_code', teamCode).maybeSingle(),
+    supabase.from('v_player_season_stats').select('*').eq('team_code', teamCode).order('damage_dealt', { ascending: false }),
+    supabase.from('v_match_results').select('*'),
+  ]);
+
+  if (!team) {
+    document.getElementById('crumb-team')!.textContent = 'TIM TIDAK DITEMUKAN';
+    return;
+  }
+
+  const { data: matchesRaw } = await supabase
+    .from('matches')
+    .select('*, team_a:teams!team_a_id(code, name, color), team_b:teams!team_b_id(code, name, color)')
+    .or(`team_a_id.eq.${team.id},team_b_id.eq.${team.id}`)
+    .order('played_on', { ascending: false });
+
+  const matchLookup = new Map();
+  (matchResults || []).forEach((m: any) => matchLookup.set(m.match_id, m));
+
+  document.title = `${team.name} — Profil Tim · Indonesia Kings Laga`;
+  document.getElementById('crumb-team')!.textContent = (team.name || '').toUpperCase();
+
+  // Header
+  const totalKills = (playerStats || []).reduce((s: number, p: any) => s + (p.kills || 0), 0);
+  const totalDeaths = (playerStats || []).reduce((s: number, p: any) => s + (p.deaths || 0), 0);
+  const totalAssists = (playerStats || []).reduce((s: number, p: any) => s + (p.assists || 0), 0);
+
+  document.getElementById('thead-in')!.innerHTML = `
+    <span class="tcrest" style="background:${esc(team.color || '')}">${esc(team.code)}</span>
+    <div>
+      <h1>${esc((team.name || '').toUpperCase())}</h1>
+      <div class="tsub">2026 FALL SEASON${standing ? ` · PERINGKAT` : ''}</div>
+    </div>`;
+
+  document.getElementById('tstrip')!.innerHTML = `
+    <div><span class="n tab-num">${standing?.match_wins || 0} – ${standing?.match_losses || 0}</span><span class="k">MENANG – KALAH</span></div>
+    <div><span class="n tab-num">${totalKills} / ${totalDeaths} / ${totalAssists}</span><span class="k">KDA TIM</span></div>
+    <div><span class="n tab-num">${teamStat ? (teamStat.total_gold / 1000).toFixed(1) + 'K' : '—'}</span><span class="k">TOTAL GOLD</span></div>
+    <div><span class="n tab-num">${teamStat?.towers || 0}</span><span class="k">TOWER DIROBOHKAN</span></div>`;
+
+  // Roster
+  const rosterBody = document.getElementById('roster-body')!;
+  if (playerStats?.length) {
+    rosterBody.innerHTML = playerStats.map((p: any) => `
+      <tr>
+        <td class="p-name">${esc(p.player_handle)}${p.mvp_count > 0 ? ` <span class="tag j">MVP ×${p.mvp_count}</span>` : ''}</td>
+        <td class="p-role">—</td>
+        <td class="kda-cell">${p.kills} / ${p.deaths} / ${p.assists}</td>
+        <td class="tab-num">${Number(p.kda).toFixed(2)}</td>
+        <td class="tab-num">${nf(p.damage_dealt)}</td>
+        <td class="tab-num">${nf(p.damage_taken)}</td>
+        <td class="tab-num">${nf(p.gold)}</td>
+        <td class="tab-num">${p.avg_teamfight_rate}%</td>
+      </tr>`).join('');
+  }
+
+  // Kontribusi Damage
+  const sortedByDealt = [...(playerStats || [])].sort((a: any, b: any) => b.damage_dealt - a.damage_dealt);
+  const sortedByTaken = [...(playerStats || [])].sort((a: any, b: any) => b.damage_taken - a.damage_taken);
+  const totalDealt = sortedByDealt.reduce((s: number, p: any) => s + p.damage_dealt, 0);
+  const totalTaken = sortedByTaken.reduce((s: number, p: any) => s + p.damage_taken, 0);
+  const maxDealt = sortedByDealt[0]?.damage_dealt || 1;
+  const maxTaken = sortedByTaken[0]?.damage_taken || 1;
+
+  function renderBars(players: any[], maxVal: number, totalVal: number, elId: string) {
+    document.getElementById(elId)!.innerHTML = players.map((p: any) => {
+      const val = elId === 'dealt-bars' ? p.damage_dealt : p.damage_taken;
+      return `
+        <div class="cbar-row">
+          <span class="cbar-name">${esc(p.player_handle)}</span>
+          <div class="cbar-track">
+            <div class="cbar-fill" style="width:${(val / maxVal * 100).toFixed(1)}%;background:linear-gradient(90deg, ${esc(team.color || '')}66, ${esc(team.color || '')})"></div>
+          </div>
+          <span class="cbar-val">${(val / totalVal * 100).toFixed(1)}%</span>
+        </div>`;
+    }).join('');
+  }
+
+  renderBars(sortedByDealt, maxDealt, totalDealt, 'dealt-bars');
+  renderBars(sortedByTaken, maxTaken, totalTaken, 'taken-bars');
+
+  // Match History
+  const histEl = document.getElementById('match-history')!;
+  if (matchesRaw?.length) {
+    histEl.innerHTML = matchesRaw.map((m: any) => {
+      const mr = matchLookup.get(m.id);
+      const aWins = mr?.team_a_games || 0;
+      const bWins = mr?.team_b_games || 0;
+      const aWon = aWins > bWins;
+      const isTeamA = m.team_a?.code === teamCode;
+      const won = isTeamA ? aWon : !aWon;
+      const dateStr = m.played_on
+        ? new Date(m.played_on).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+        : '—';
+      return `
+        <a class="mrow" href="/match/${m.code.toLowerCase()}">
+          <span class="m-when">${esc(dateStr)}</span>
+          <span class="m-team">
+            <span class="crest" style="background:${esc(m.team_a?.color || '')}">${esc(m.team_a?.code || '')}</span>
+            <span class="${isTeamA && won ? 'won' : isTeamA ? 'lost' : !isTeamA && !won ? 'won' : 'lost'}">${esc((m.team_a?.name || '').toUpperCase())}</span>
+          </span>
+          <span class="m-score tab-num">${aWins} – ${bWins}</span>
+          <span class="m-team r">
+            <span class="crest" style="background:${esc(m.team_b?.color || '')}">${esc(m.team_b?.code || '')}</span>
+            <span class="${!isTeamA && won ? 'won' : !isTeamA ? 'lost' : isTeamA && !won ? 'won' : 'lost'}">${esc((m.team_b?.name || '').toUpperCase())}</span>
+          </span>
+          <span class="m-go">LIHAT DETAIL</span>
+        </a>`;
+    }).join('');
+  }
+}
+
+loadTeam();
+
+const links = [...document.querySelectorAll('#nav a')];
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    if (en.isIntersecting) {
+      links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + en.target.id));
+    }
+  });
+}, { rootMargin: '-25% 0px -65% 0px' });
+document.querySelectorAll('main section').forEach(s => spy.observe(s));
+</script>
+
+</Base>

@@ -1,7 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import Leaderboard from '../components/Leaderboard.astro';
-import { supabase } from '../lib/supabase';
 
 const navLinks = [
   { href: '#pertandingan', label: 'PERTANDINGAN' },
@@ -10,60 +8,6 @@ const navLinks = [
   { href: '#peringkat-tim', label: 'PERINGKAT TIM' },
   { href: '#tim', label: 'TIM' },
 ];
-
-const { data: standings } = await supabase
-  .from('v_standings')
-  .select('*')
-  .order('points', { ascending: false })
-  .order('game_diff', { ascending: false });
-
-const { data: players } = await supabase
-  .from('v_player_season_stats')
-  .select('*')
-  .order('damage_dealt', { ascending: false });
-
-const { data: teamStats } = await supabase
-  .from('v_team_season_stats')
-  .select('*');
-
-const { data: matchResults } = await supabase
-  .from('v_match_results')
-  .select('*')
-  .order('played_on', { ascending: false });
-
-const { data: teams } = await supabase
-  .from('teams')
-  .select('*');
-
-const { data: matches } = await supabase
-  .from('matches')
-  .select('*, team_a:teams!team_a_id(code, name, color), team_b:teams!team_b_id(code, name, color)')
-  .order('played_on', { ascending: false });
-
-const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
-
-const totalMatches = matches?.length || 0;
-const totalGames = standings?.reduce((s, t) => s + (t.game_wins || 0), 0) / 2 || 0;
-
-const matchLookup = new Map();
-matchResults?.forEach(m => matchLookup.set(m.match_id, m));
-
-const statusLabel = (rank: number, total: number) => {
-  if (rank === 1) return { label: 'MEMIMPIN', cls: 'j' };
-  if (rank <= Math.ceil(total / 2)) return { label: 'ZONA PLAYOFF', cls: 'p' };
-  return { label: 'LUAR ZONA', cls: 'o' };
-};
-
-const teamAgg = (teamStats || []).map(t => {
-  const pls = (players || []).filter(p => p.team_code === t.team_code);
-  return {
-    ...t,
-    kills: pls.reduce((s, p) => s + (p.kills || 0), 0),
-    deaths: pls.reduce((s, p) => s + (p.deaths || 0), 0),
-    dpm: pls.reduce((s, p) => s + (p.damage_per_minute || 0), 0) / (pls.length || 1),
-    tf: pls.reduce((s, p) => s + (p.avg_teamfight_rate || 0), 0) / (pls.length || 1),
-  };
-}).sort((a, b) => (b.kills - b.deaths) - (a.kills - a.deaths));
 ---
 
 <Base title="Indonesia Kings Laga — Pusat Statistik" navLinks={navLinks}>
@@ -76,8 +20,8 @@ const teamAgg = (teamStats || []).map(t => {
     <h1>KINGS LAGA<span class="sub">SETIAP LAGA TERCATAT, SETIAP ANGKA PUNYA CERITA</span></h1>
 
     <div class="recap">
-      <div><span class="n tab-num">{totalMatches}</span><span class="k">TOTAL MATCH</span></div>
-      <div><span class="n tab-num">{totalGames}</span><span class="k">TOTAL GAME</span></div>
+      <div><span class="n tab-num" id="stat-matches">—</span><span class="k">TOTAL MATCH</span></div>
+      <div><span class="n tab-num" id="stat-games">—</span><span class="k">TOTAL GAME</span></div>
     </div>
   </div>
 </div>
@@ -91,30 +35,7 @@ const teamAgg = (teamStats || []).map(t => {
       <h2>PERTANDINGAN</h2>
       <p>Klik pertandingan untuk membuka rincian per game: duel antar lane, scoreboard, perebutan objektif, dan grafik gold.</p>
     </div>
-    <div class="mlist">
-      {(matches || []).map(m => {
-        const mr = matchLookup.get(m.id);
-        const hasData = mr && (mr.team_a_games > 0 || mr.team_b_games > 0);
-        const aWins = mr?.team_a_games || 0;
-        const bWins = mr?.team_b_games || 0;
-        const aWon = aWins > bWins;
-        return (
-          <a class={`mrow${!hasData ? ' dim' : ''}`} href={hasData ? `/match/${m.code.toLowerCase()}` : '#'}>
-            <span class="m-when">{m.played_on ? new Date(m.played_on).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'JADWAL'}</span>
-            <span class="m-team">
-              <span class="crest" style={`background:${m.team_a?.color}`}>{m.team_a?.code}</span>
-              <span class={aWon ? 'won' : 'lost'}>{m.team_a?.name?.toUpperCase()}</span>
-            </span>
-            <span class="m-score tab-num">{hasData ? `${aWins} – ${bWins}` : 'VS'}</span>
-            <span class="m-team r">
-              <span class="crest" style={`background:${m.team_b?.color}`}>{m.team_b?.code}</span>
-              <span class={!aWon ? 'won' : 'lost'}>{m.team_b?.name?.toUpperCase()}</span>
-            </span>
-            <span class="m-go">{hasData ? 'LIHAT DETAIL' : 'BELUM DIINPUT'}</span>
-          </a>
-        );
-      })}
-    </div>
+    <div class="mlist" id="mlist"></div>
     <p class="note">Baris yang meredup menandakan datanya belum diekstrak dari siaran.</p>
   </section>
 
@@ -129,24 +50,7 @@ const teamAgg = (teamStats || []).map(t => {
         <thead>
           <tr><th>#</th><th>Tim</th><th>Match</th><th>M</th><th>K</th><th>Selisih Game</th><th>Poin</th><th>Status</th></tr>
         </thead>
-        <tbody>
-          {(standings || []).map((t, i) => {
-            const st = statusLabel(i + 1, standings?.length || 0);
-            const diff = t.game_diff || 0;
-            return (
-              <tr>
-                <td class="rk">{i + 1}</td>
-                <td class="p-name">{t.team_name?.toUpperCase()}</td>
-                <td class="tab-num">{t.matches_played}</td>
-                <td class="tab-num">{t.match_wins}</td>
-                <td class="tab-num">{t.match_losses}</td>
-                <td class={`tab-num ${diff > 0 ? 'pos' : diff < 0 ? 'neg' : ''}`}>{diff > 0 ? '+' : ''}{diff}</td>
-                <td class="tab-num">{t.points}</td>
-                <td><span class={`tag ${st.cls}`}>{st.label}</span></td>
-              </tr>
-            );
-          })}
-        </tbody>
+        <tbody id="standings-body"></tbody>
       </table>
     </div>
   </section>
@@ -158,7 +62,20 @@ const teamAgg = (teamStats || []).map(t => {
       <h2>PAPAN PERINGKAT PEMAIN</h2>
       <p>Seluruh pemain yang datanya sudah tercatat, diurutkan per metrik.</p>
     </div>
-    <Leaderboard players={players || []} />
+    <div class="lb-tabs" id="lbTabs">
+      <button class="lb-tab on" data-m="dealt">DAMAGE DEALT</button>
+      <button class="lb-tab" data-m="taken">DAMAGE TAKEN</button>
+      <button class="lb-tab" data-m="gold">TOTAL GOLD</button>
+      <button class="lb-tab" data-m="kda">KDA</button>
+      <button class="lb-tab" data-m="kill">KILL</button>
+      <button class="lb-tab" data-m="assist">ASSIST</button>
+      <button class="lb-tab" data-m="tf">TEAMFIGHT</button>
+      <button class="lb-tab" data-m="dpm">DAMAGE / MENIT</button>
+      <button class="lb-tab" data-m="eff">DAMAGE / 1RB GOLD</button>
+      <button class="lb-tab" data-m="gpm">GOLD / MENIT</button>
+    </div>
+    <p class="lb-explain" id="lbExplain"></p>
+    <div id="lbList"></div>
   </section>
 
   <!-- PERINGKAT TIM -->
@@ -173,26 +90,7 @@ const teamAgg = (teamStats || []).map(t => {
         <thead>
           <tr><th>#</th><th>Tim</th><th>Game</th><th>Kill</th><th>Death</th><th>Gold</th><th>Gold/Menit</th><th>Dmg/Menit</th><th>Tower</th><th>Objektif Besar</th><th>Teamfight</th></tr>
         </thead>
-        <tbody>
-          {teamAgg.map((t, i) => (
-            <tr>
-              <td class="rk">{i + 1}</td>
-              <td class="p-name">
-                <span style={`display:inline-block;width:4px;height:14px;background:${t.team_color};margin-right:8px;vertical-align:-2px;`}></span>
-                {t.team_name?.toUpperCase()}
-              </td>
-              <td class="tab-num">{t.games_played}</td>
-              <td class="tab-num">{t.kills}</td>
-              <td class="tab-num">{t.deaths}</td>
-              <td class="tab-num">{nf(t.total_gold)}</td>
-              <td class="tab-num">{nf(t.gold_per_minute)}</td>
-              <td class="tab-num">{nf(t.dpm)}</td>
-              <td class="tab-num">{t.towers}</td>
-              <td class={`tab-num${t.major_objectives === 0 ? ' z' : ''}`}>{t.major_objectives}</td>
-              <td class="tab-num">{t.tf.toFixed(0)}%</td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody id="teamstats-body"></tbody>
       </table>
     </div>
   </section>
@@ -204,33 +102,215 @@ const teamAgg = (teamStats || []).map(t => {
       <h2>TIM</h2>
       <p>Tim yang berlaga musim ini.</p>
     </div>
-    <div class="teams">
-      {(teams || []).map(t => {
-        const s = (standings || []).find(st => st.team_code === t.code);
-        const hasGames = s && s.matches_played > 0;
-        return (
-          <a class={`tcard${!hasGames ? ' empty' : ''}`} href={hasGames ? `/tim/${t.code.toLowerCase()}` : '#'} style={`border-top-color:${t.color}`}>
-            <span class="crest" style={`background:${t.color}`}>{t.code}</span>
-            <span class="tn">{t.name?.toUpperCase()}</span>
-            <span class="tr">{hasGames ? `${s.match_wins} MENANG · ${s.match_losses} KALAH` : 'BELUM BERTANDING'}</span>
-            <span class="tl">{hasGames ? 'LIHAT PROFIL' : 'PROFIL MENYUSUL'}</span>
-          </a>
-        );
-      })}
-    </div>
+    <div class="teams" id="teams-grid"></div>
   </section>
 
 </main>
 
 <script>
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+const nf = (v: number) => Math.round(v).toLocaleString('id-ID');
+const esc = (s: string) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+function statusLabel(rank: number, total: number) {
+  if (rank === 1) return { label: 'MEMIMPIN', cls: 'j' };
+  if (rank <= Math.ceil(total / 2)) return { label: 'ZONA PLAYOFF', cls: 'p' };
+  return { label: 'LUAR ZONA', cls: 'o' };
+}
+
+async function loadAll() {
+  const [
+    { data: standings },
+    { data: players },
+    { data: teamStats },
+    { data: matchResults },
+    { data: teams },
+    { data: matches },
+  ] = await Promise.all([
+    supabase.from('v_standings').select('*').order('points', { ascending: false }).order('game_diff', { ascending: false }),
+    supabase.from('v_player_season_stats').select('*').order('damage_dealt', { ascending: false }),
+    supabase.from('v_team_season_stats').select('*'),
+    supabase.from('v_match_results').select('*').order('played_on', { ascending: false }),
+    supabase.from('teams').select('*'),
+    supabase.from('matches').select('*, team_a:teams!team_a_id(code, name, color), team_b:teams!team_b_id(code, name, color)').order('played_on', { ascending: false }),
+  ]);
+
+  // ── Hero Stats ──
+  const totalMatches = matches?.length || 0;
+  const totalGames = (standings || []).reduce((s: number, t: any) => s + (t.game_wins || 0), 0) / 2 || 0;
+  document.getElementById('stat-matches')!.textContent = String(totalMatches);
+  document.getElementById('stat-games')!.textContent = String(totalGames);
+
+  // ── Match List ──
+  const matchLookup = new Map();
+  (matchResults || []).forEach((m: any) => matchLookup.set(m.match_id, m));
+
+  const mlist = document.getElementById('mlist')!;
+  if (matches?.length) {
+    mlist.innerHTML = matches.map((m: any) => {
+      const mr = matchLookup.get(m.id);
+      const hasData = mr && (mr.team_a_games > 0 || mr.team_b_games > 0);
+      const aWins = mr?.team_a_games || 0;
+      const bWins = mr?.team_b_games || 0;
+      const aWon = aWins > bWins;
+      const dateStr = m.played_on
+        ? new Date(m.played_on).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+        : 'JADWAL';
+      const href = hasData ? `/match/${m.code.toLowerCase()}` : '#';
+      return `
+        <a class="mrow${!hasData ? ' dim' : ''}" href="${href}">
+          <span class="m-when">${esc(dateStr)}</span>
+          <span class="m-team">
+            <span class="crest" style="background:${esc(m.team_a?.color || '')}">${esc(m.team_a?.code || '')}</span>
+            <span class="${aWon ? 'won' : 'lost'}">${esc((m.team_a?.name || '').toUpperCase())}</span>
+          </span>
+          <span class="m-score tab-num">${hasData ? `${aWins} – ${bWins}` : 'VS'}</span>
+          <span class="m-team r">
+            <span class="crest" style="background:${esc(m.team_b?.color || '')}">${esc(m.team_b?.code || '')}</span>
+            <span class="${!aWon ? 'won' : 'lost'}">${esc((m.team_b?.name || '').toUpperCase())}</span>
+          </span>
+          <span class="m-go">${hasData ? 'LIHAT DETAIL' : 'BELUM DIINPUT'}</span>
+        </a>`;
+    }).join('');
+  }
+
+  // ── Standings ──
+  const tbody = document.getElementById('standings-body')!;
+  if (standings?.length) {
+    tbody.innerHTML = standings.map((t: any, i: number) => {
+      const st = statusLabel(i + 1, standings.length);
+      const diff = t.game_diff || 0;
+      const diffCls = diff > 0 ? ' pos' : diff < 0 ? ' neg' : '';
+      return `
+        <tr>
+          <td class="rk">${i + 1}</td>
+          <td class="p-name">${esc((t.team_name || '').toUpperCase())}</td>
+          <td class="tab-num">${t.matches_played}</td>
+          <td class="tab-num">${t.match_wins}</td>
+          <td class="tab-num">${t.match_losses}</td>
+          <td class="tab-num${diffCls}">${diff > 0 ? '+' : ''}${diff}</td>
+          <td class="tab-num">${t.points}</td>
+          <td><span class="tag ${st.cls}">${st.label}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ── Leaderboard ──
+  const PLAYERS = players || [];
+  const LB: Record<string, any> = {
+    dealt:  { label:'DAMAGE DEALT',      val:(p:any) => p.damage_dealt,       fmt:(v:number) => nf(v), note:'Total damage yang dikeluarkan ke lawan.' },
+    taken:  { label:'DAMAGE TAKEN',      val:(p:any) => p.damage_taken,       fmt:(v:number) => nf(v), note:'Total damage yang diserap. Angka tinggi biasanya milik roam dan clash lane.' },
+    gold:   { label:'TOTAL GOLD',        val:(p:any) => p.gold,               fmt:(v:number) => nf(v), note:'Gold terkumpul sampai game berakhir.' },
+    kda:    { label:'KDA',               val:(p:any) => Number(p.kda),        fmt:(v:number) => v.toFixed(2), note:'(Kill + Assist) dibagi Death. Death nol dihitung satu.' },
+    kill:   { label:'KILL',              val:(p:any) => p.kills,              fmt:(v:number) => nf(v), note:'Jumlah kill.' },
+    assist: { label:'ASSIST',            val:(p:any) => p.assists,            fmt:(v:number) => nf(v), note:'Jumlah assist.' },
+    tf:     { label:'TEAMFIGHT',         val:(p:any) => Number(p.avg_teamfight_rate), fmt:(v:number) => v.toFixed(0) + '%', note:'Rata-rata kehadiran di teamfight.' },
+    dpm:    { label:'DAMAGE / MENIT',    val:(p:any) => Number(p.damage_per_minute),  fmt:(v:number) => nf(v), note:'Damage dibagi durasi game. Berguna untuk membandingkan game pendek dan panjang.' },
+    eff:    { label:'DAMAGE / 1RB GOLD', val:(p:any) => Number(p.damage_per_1k_gold), fmt:(v:number) => nf(v), note:'Damage per 1.000 gold. Mengukur efisiensi.' },
+    gpm:    { label:'GOLD / MENIT',      val:(p:any) => Number(p.gold_per_minute),    fmt:(v:number) => nf(v), note:'Kecepatan mengumpulkan gold per menit.' }
+  };
+
+  const lbList = document.getElementById('lbList')!;
+  const lbExplain = document.getElementById('lbExplain')!;
+
+  function renderLB(key: string) {
+    const m = LB[key];
+    lbExplain.textContent = m.note;
+    const sorted = [...PLAYERS].sort((x: any, y: any) => m.val(y) - m.val(x));
+    const max = sorted.length ? m.val(sorted[0]) || 1 : 1;
+    lbList.innerHTML = sorted.map((p: any, i: number) => {
+      const v = m.val(p);
+      const c = p.team_color || '#555';
+      return `
+        <div class="lb-row${i < 3 ? ' top' : ''}">
+          <span class="lb-rank">${i + 1}</span>
+          <span class="lb-who">
+            <span class="lb-dot" style="background:${esc(c)}"></span>
+            <span class="lb-nm"><b>${esc(p.player_handle)}</b><span>${esc(p.team_name || '')}</span></span>
+          </span>
+          <span class="lb-track"><span class="lb-fill" style="width:${(v / max * 100).toFixed(1)}%;background:linear-gradient(90deg, ${c}55, ${c})"></span></span>
+          <span class="lb-val">${m.fmt(v)}</span>
+        </div>`;
+    }).join('');
+  }
+  renderLB('dealt');
+
+  document.getElementById('lbTabs')!.addEventListener('click', (e: Event) => {
+    const btn = (e.target as HTMLElement).closest('.lb-tab') as HTMLElement | null;
+    if (!btn) return;
+    document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    renderLB(btn.dataset.m!);
+  });
+
+  // ── Team Stats ──
+  const teamAgg = (teamStats || []).map((t: any) => {
+    const pls = (players || []).filter((p: any) => p.team_code === t.team_code);
+    return {
+      ...t,
+      kills: pls.reduce((s: number, p: any) => s + (p.kills || 0), 0),
+      deaths: pls.reduce((s: number, p: any) => s + (p.deaths || 0), 0),
+      dpm: pls.reduce((s: number, p: any) => s + (p.damage_per_minute || 0), 0) / (pls.length || 1),
+      tf: pls.reduce((s: number, p: any) => s + (p.avg_teamfight_rate || 0), 0) / (pls.length || 1),
+    };
+  }).sort((a: any, b: any) => (b.kills - b.deaths) - (a.kills - a.deaths));
+
+  const tsbody = document.getElementById('teamstats-body')!;
+  if (teamAgg.length) {
+    tsbody.innerHTML = teamAgg.map((t: any, i: number) => `
+      <tr>
+        <td class="rk">${i + 1}</td>
+        <td class="p-name">
+          <span style="display:inline-block;width:4px;height:14px;background:${esc(t.team_color || '')};margin-right:8px;vertical-align:-2px;"></span>
+          ${esc((t.team_name || '').toUpperCase())}
+        </td>
+        <td class="tab-num">${t.games_played}</td>
+        <td class="tab-num">${t.kills}</td>
+        <td class="tab-num">${t.deaths}</td>
+        <td class="tab-num">${nf(t.total_gold)}</td>
+        <td class="tab-num">${nf(t.gold_per_minute)}</td>
+        <td class="tab-num">${nf(t.dpm)}</td>
+        <td class="tab-num">${t.towers}</td>
+        <td class="tab-num${t.major_objectives === 0 ? ' z' : ''}">${t.major_objectives}</td>
+        <td class="tab-num">${(t.tf || 0).toFixed(0)}%</td>
+      </tr>`).join('');
+  }
+
+  // ── Teams Grid ──
+  const tgrid = document.getElementById('teams-grid')!;
+  if (teams?.length) {
+    tgrid.innerHTML = teams.map((t: any) => {
+      const s = (standings || []).find((st: any) => st.team_code === t.code);
+      const hasGames = s && s.matches_played > 0;
+      const href = hasGames ? `/tim/${t.code.toLowerCase()}` : '#';
+      return `
+        <a class="tcard${!hasGames ? ' empty' : ''}" href="${href}" style="border-top-color:${esc(t.color || '')}">
+          <span class="crest" style="background:${esc(t.color || '')}">${esc(t.code)}</span>
+          <span class="tn">${esc((t.name || '').toUpperCase())}</span>
+          <span class="tr">${hasGames ? `${s.match_wins} MENANG · ${s.match_losses} KALAH` : 'BELUM BERTANDING'}</span>
+          <span class="tl">${hasGames ? 'LIHAT PROFIL' : 'PROFIL MENYUSUL'}</span>
+        </a>`;
+    }).join('');
+  }
+}
+
+loadAll();
+
+// Nav spy
 const links = [...document.querySelectorAll('#nav a')];
 const spy = new IntersectionObserver(entries => {
   entries.forEach(en => {
-    if(en.isIntersecting){
+    if (en.isIntersecting) {
       links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + en.target.id));
     }
   });
-}, { rootMargin:'-25% 0px -65% 0px' });
+}, { rootMargin: '-25% 0px -65% 0px' });
 document.querySelectorAll('main section').forEach(s => spy.observe(s));
 </script>
 
