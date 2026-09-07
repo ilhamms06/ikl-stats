@@ -1,0 +1,946 @@
+---
+import Base from '../../layouts/Base.astro';
+const navLinks = [
+  { href: '/', label: 'BERANDA' },
+];
+---
+
+<Base title="Master Data — Indonesia Kings Laga" navLinks={navLinks}>
+
+<!-- ============ LOGIN GATE ============ -->
+<div id="login-gate" style="display:none">
+  <div class="login-box">
+    <div class="login-icon">
+      <svg viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="48" height="54">
+        <path d="M20 1l5 6 5-3-1 8 8 3-6 5 4 7-8 1-2 8-5-5-5 5-2-8-8-1 4-7-6-5 8-3-1-8 5 3z" fill="none" stroke="#E0A83C" stroke-width="1.3"/>
+        <circle cx="20" cy="21" r="5.5" fill="none" stroke="#B02233" stroke-width="1.6"/>
+        <circle cx="20" cy="21" r="1.8" fill="#E0A83C"/>
+      </svg>
+    </div>
+    <h2 class="login-title">ADMIN LOGIN</h2>
+    <p class="login-sub">Masuk untuk mengelola master data</p>
+    <div id="login-error" class="adm-error" style="display:none"></div>
+    <form id="login-form" autocomplete="on">
+      <label class="adm-label" for="login-email">EMAIL</label>
+      <input class="adm-input" id="login-email" type="email" required autocomplete="email" placeholder="admin@example.com">
+      <label class="adm-label" for="login-pass">PASSWORD</label>
+      <input class="adm-input" id="login-pass" type="password" required autocomplete="current-password" placeholder="••••••••">
+      <button class="adm-btn primary full" type="submit" id="login-submit">MASUK</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ ADMIN UI ============ -->
+<div id="admin-ui" style="display:none">
+  <section class="first">
+    <div class="wrap">
+
+      <!-- header row -->
+      <div class="adm-header">
+        <div>
+          <span class="sec-head"><span class="idx">ADMIN</span></span>
+          <h2>Master Data</h2>
+        </div>
+        <button class="adm-btn outline" id="btn-logout">LOGOUT</button>
+      </div>
+
+      <!-- tabs -->
+      <div class="adm-tabs">
+        <button class="ttab on" data-tab="season">SEASON</button>
+        <button class="ttab" data-tab="tim">TIM</button>
+        <button class="ttab" data-tab="pemain">PEMAIN</button>
+      </div>
+
+      <!-- ====== SEASON PANEL ====== -->
+      <div class="pg pg-season" id="pg-season">
+        <div id="season-loading" class="adm-loading">Memuat data season...</div>
+        <div id="season-content" style="display:none">
+          <div class="adm-split">
+            <div class="adm-form-col">
+              <h3 class="adm-section-title">Tambah Season</h3>
+              <div id="season-error" class="adm-error" style="display:none"></div>
+              <form id="season-form">
+                <label class="adm-label" for="s-name">NAMA</label>
+                <input class="adm-input" id="s-name" type="text" required placeholder="2026 Fall Split">
+                <label class="adm-label" for="s-slug">SLUG</label>
+                <input class="adm-input" id="s-slug" type="text" required placeholder="2026-fall">
+                <div class="adm-row-2">
+                  <div>
+                    <label class="adm-label" for="s-start">MULAI</label>
+                    <input class="adm-input" id="s-start" type="date" required>
+                  </div>
+                  <div>
+                    <label class="adm-label" for="s-end">SELESAI</label>
+                    <input class="adm-input" id="s-end" type="date" required>
+                  </div>
+                </div>
+                <label class="adm-check">
+                  <input type="checkbox" id="s-active"> Aktif
+                </label>
+                <button class="adm-btn primary" type="submit">SIMPAN SEASON</button>
+              </form>
+            </div>
+            <div class="adm-list-col">
+              <h3 class="adm-section-title">Daftar Season</h3>
+              <div id="season-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== TIM PANEL ====== -->
+      <div class="pg pg-tim" id="pg-tim" style="display:none">
+        <div id="tim-loading" class="adm-loading">Memuat data tim...</div>
+        <div id="tim-content" style="display:none">
+          <!-- stats strip -->
+          <div class="adm-stats-strip">
+            <div class="adm-stat"><span class="n" id="stat-teams">0</span><span class="k">TOTAL TIM</span></div>
+            <div class="adm-stat"><span class="n" id="stat-players-all">0</span><span class="k">TOTAL PEMAIN</span></div>
+          </div>
+          <div class="adm-split">
+            <div class="adm-form-col">
+              <h3 class="adm-section-title" id="tim-form-title">Tambah Tim</h3>
+              <div id="tim-error" class="adm-error" style="display:none"></div>
+              <form id="tim-form">
+                <input type="hidden" id="t-id">
+                <label class="adm-label" for="t-code">KODE (2-6 huruf)</label>
+                <input class="adm-input" id="t-code" type="text" required minlength="2" maxlength="6" pattern="[A-Za-z]{2,6}" placeholder="OG" style="text-transform:uppercase">
+                <label class="adm-label" for="t-name">NAMA TIM</label>
+                <input class="adm-input" id="t-name" type="text" required placeholder="OG Esports">
+                <div class="adm-row-2">
+                  <div>
+                    <label class="adm-label" for="t-color">WARNA</label>
+                    <div class="color-pick-wrap">
+                      <input class="adm-input color-input" id="t-color" type="color" value="#B02233">
+                      <span class="color-hex" id="t-color-hex">#B02233</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="adm-label" for="t-logo">LOGO URL</label>
+                    <input class="adm-input" id="t-logo" type="url" placeholder="https://...">
+                  </div>
+                </div>
+                <div class="adm-btn-row">
+                  <button class="adm-btn primary" type="submit" id="tim-submit-btn">SIMPAN TIM</button>
+                  <button class="adm-btn outline" type="button" id="tim-cancel-btn" style="display:none">BATAL</button>
+                </div>
+              </form>
+            </div>
+            <div class="adm-list-col">
+              <h3 class="adm-section-title">Daftar Tim</h3>
+              <div id="tim-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== PEMAIN PANEL ====== -->
+      <div class="pg pg-pemain" id="pg-pemain" style="display:none">
+        <div id="pemain-loading" class="adm-loading">Memuat data pemain...</div>
+        <div id="pemain-content" style="display:none">
+          <!-- stats strip -->
+          <div class="adm-stats-strip">
+            <div class="adm-stat"><span class="n" id="stat-pemain">0</span><span class="k">TOTAL PEMAIN</span></div>
+            <div class="adm-stat"><span class="n" id="stat-rostered">0</span><span class="k">DALAM ROSTER</span></div>
+          </div>
+          <!-- filter pills -->
+          <div class="adm-filter-row">
+            <button class="adm-pill on" data-team="all">SEMUA</button>
+          </div>
+          <div class="adm-btn-row" style="margin-bottom:18px">
+            <button class="adm-btn primary" id="btn-add-player">+ TAMBAH PEMAIN</button>
+          </div>
+          <div id="pemain-list"></div>
+        </div>
+      </div>
+
+      <!-- ====== PLAYER MODAL ====== -->
+      <div class="adm-modal-overlay" id="player-modal" style="display:none">
+        <div class="adm-modal">
+          <div class="adm-modal-head">
+            <h3 id="player-modal-title">Tambah Pemain</h3>
+            <button class="adm-modal-close" id="player-modal-close">&times;</button>
+          </div>
+          <div id="pemain-error" class="adm-error" style="display:none"></div>
+          <form id="pemain-form">
+            <input type="hidden" id="p-id">
+            <input type="hidden" id="p-roster-id">
+            <label class="adm-label" for="p-handle">HANDLE (unik)</label>
+            <input class="adm-input" id="p-handle" type="text" required placeholder="xKnight">
+            <label class="adm-label" for="p-display">NAMA ASLI</label>
+            <input class="adm-input" id="p-display" type="text" placeholder="Ahmad Rizki">
+            <div class="adm-row-2">
+              <div>
+                <label class="adm-label" for="p-team">TIM</label>
+                <select class="adm-input" id="p-team">
+                  <option value="">— Tidak ada —</option>
+                </select>
+              </div>
+              <div>
+                <label class="adm-label" for="p-role">ROLE</label>
+                <select class="adm-input" id="p-role">
+                  <option value="">— Pilih —</option>
+                  <option value="clash_lane">Clash Lane</option>
+                  <option value="jungle">Jungle</option>
+                  <option value="mid_lane">Mid Lane</option>
+                  <option value="farm_lane">Farm Lane</option>
+                  <option value="roam">Roam</option>
+                </select>
+              </div>
+            </div>
+            <label class="adm-label" for="p-nat">KEWARGANEGARAAN</label>
+            <input class="adm-input" id="p-nat" type="text" placeholder="ID">
+            <div class="adm-btn-row">
+              <button class="adm-btn primary" type="submit" id="pemain-submit-btn">SIMPAN PEMAIN</button>
+              <button class="adm-btn outline" type="button" id="pemain-cancel-btn">BATAL</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+</Base>
+
+<style>
+  /* ============ ADMIN PAGE STYLES ============ */
+
+  /* --- Login --- */
+  .login-box{
+    max-width:380px; margin:80px auto 60px; padding:38px 32px;
+    background:var(--ink-2); border:1px solid var(--line);
+    text-align:center;
+  }
+  .login-icon{ margin-bottom:18px; }
+  .login-title{
+    font-family:var(--display); font-size:24px; color:var(--gold-lite);
+    letter-spacing:0.04em; margin-bottom:6px;
+  }
+  .login-sub{
+    font-family:var(--cond); font-size:13px; color:var(--dim);
+    letter-spacing:0.08em; margin:0 0 22px;
+  }
+
+  /* --- Shared form elements --- */
+  .adm-label{
+    display:block; font-family:var(--cond); font-size:10.5px; font-weight:700;
+    letter-spacing:0.16em; color:var(--dim); margin:14px 0 5px;
+  }
+  .adm-input{
+    display:block; width:100%; font-family:var(--body); font-size:14px;
+    background:var(--ink); color:var(--bone); border:1px solid var(--line);
+    padding:10px 12px; outline:none;
+    transition:border-color .15s ease;
+  }
+  .adm-input:focus{ border-color:var(--gold); }
+  .adm-input::placeholder{ color:var(--dim); }
+  select.adm-input{
+    appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236E5153' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    padding-right:32px;
+    cursor:pointer;
+  }
+  .adm-check{
+    display:flex; align-items:center; gap:8px; margin:14px 0;
+    font-family:var(--cond); font-size:13px; color:var(--bone); cursor:pointer;
+  }
+  .adm-check input[type="checkbox"]{
+    accent-color:var(--gold); width:16px; height:16px;
+  }
+  .adm-error{
+    font-family:var(--cond); font-size:12.5px; color:var(--crimson-lite);
+    background:rgba(201,51,63,0.12); border:1px solid rgba(201,51,63,0.25);
+    padding:9px 14px; margin-bottom:10px; letter-spacing:0.04em;
+  }
+  .adm-success{
+    font-family:var(--cond); font-size:12.5px; color:var(--green);
+    background:rgba(31,157,116,0.10); border:1px solid rgba(31,157,116,0.25);
+    padding:9px 14px; margin-bottom:10px; letter-spacing:0.04em;
+  }
+
+  /* --- Buttons --- */
+  .adm-btn{
+    display:inline-block; font-family:var(--cond); font-size:12px; font-weight:700;
+    letter-spacing:0.12em; text-decoration:none; padding:11px 22px;
+    cursor:pointer; border:none; transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .adm-btn.primary{
+    background:var(--crimson); color:#fff; border:1px solid var(--crimson-lite);
+  }
+  .adm-btn.primary:hover{ background:var(--crimson-lite); }
+  .adm-btn.primary:disabled{ opacity:.5; cursor:not-allowed; }
+  .adm-btn.outline{
+    background:none; color:var(--gold-lite); border:1px solid var(--line-2);
+  }
+  .adm-btn.outline:hover{ background:var(--gold); color:var(--ink); border-color:var(--gold); }
+  .adm-btn.danger{
+    background:none; color:var(--crimson-lite); border:1px solid rgba(201,51,63,0.3);
+  }
+  .adm-btn.danger:hover{ background:var(--crimson); color:#fff; border-color:var(--crimson); }
+  .adm-btn.full{ width:100%; text-align:center; margin-top:20px; }
+  .adm-btn.sm{ padding:7px 14px; font-size:11px; }
+  .adm-btn-row{ display:flex; gap:10px; margin-top:16px; }
+
+  /* --- Admin header --- */
+  .adm-header{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:18px; padding:28px 0 20px; flex-wrap:wrap;
+  }
+
+  /* --- Tabs --- */
+  .adm-tabs{
+    display:flex; gap:4px; border-bottom:1px solid var(--line); padding-bottom:0;
+    margin-bottom:26px;
+  }
+  .ttab{
+    font-family:var(--cond); font-size:12px; font-weight:700; letter-spacing:0.12em;
+    background:none; border:none; border-bottom:2px solid transparent;
+    color:var(--muted); padding:12px 18px; cursor:pointer;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .ttab:hover{ color:var(--bone); }
+  .ttab.on{ color:var(--gold-lite); border-bottom-color:var(--gold); }
+
+  /* --- Panels --- */
+  .pg{ padding:4px 0 40px; }
+
+  /* --- Loading state --- */
+  .adm-loading{
+    font-family:var(--cond); font-size:13px; color:var(--dim);
+    letter-spacing:0.08em; padding:40px 0; text-align:center;
+  }
+  .adm-loading::before{
+    content:""; display:inline-block; width:16px; height:16px;
+    border:2px solid var(--line); border-top-color:var(--gold);
+    border-radius:50%; animation:spin .7s linear infinite;
+    vertical-align:middle; margin-right:10px;
+  }
+  @keyframes spin{ to{transform:rotate(360deg);} }
+
+  /* --- Layout: split form/list --- */
+  .adm-split{
+    display:grid; grid-template-columns:380px 1fr; gap:32px;
+    align-items:start;
+  }
+  @media(max-width:860px){
+    .adm-split{ grid-template-columns:1fr; }
+  }
+  .adm-section-title{
+    font-family:var(--cond); font-size:13px; font-weight:700;
+    letter-spacing:0.14em; color:var(--gold); margin:0 0 14px;
+    text-transform:uppercase;
+  }
+
+  /* --- Stats strip --- */
+  .adm-stats-strip{
+    display:flex; gap:1px; background:var(--line);
+    border:1px solid var(--line); margin-bottom:22px;
+  }
+  .adm-stat{
+    background:var(--ink-2); padding:16px 22px; flex:1; min-width:0;
+  }
+  .adm-stat .n{
+    font-family:var(--display); font-size:26px; color:var(--gold-lite); line-height:1;
+  }
+  .adm-stat .k{
+    display:block; font-family:var(--cond); font-size:10px; font-weight:700;
+    letter-spacing:0.14em; color:var(--dim); margin-top:6px;
+  }
+
+  /* --- Row 2 columns --- */
+  .adm-row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  /* --- Color picker --- */
+  .color-pick-wrap{ display:flex; align-items:center; gap:8px; }
+  .color-input{ width:48px; height:38px; padding:2px; cursor:pointer; flex:none; }
+  .color-hex{ font-family:var(--cond); font-size:13px; color:var(--muted); letter-spacing:0.06em; }
+
+  /* --- List items --- */
+  .adm-card{
+    display:flex; align-items:center; gap:14px;
+    padding:14px 16px; border-bottom:1px solid var(--line);
+    transition:background .12s ease;
+  }
+  .adm-card:hover{ background:rgba(224,168,60,0.04); }
+  .adm-card-info{ flex:1; min-width:0; }
+  .adm-card-name{
+    font-family:var(--cond); font-size:14px; font-weight:700; color:var(--bone);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .adm-card-sub{
+    font-family:var(--cond); font-size:11.5px; color:var(--dim);
+    letter-spacing:0.06em; margin-top:2px;
+  }
+  .adm-card-actions{ display:flex; gap:6px; flex:none; }
+
+  /* --- Season-specific items --- */
+  .season-card{
+    display:flex; align-items:center; gap:14px;
+    padding:14px 16px; border-bottom:1px solid var(--line);
+    transition:background .12s ease;
+  }
+  .season-card:hover{ background:rgba(224,168,60,0.04); }
+  .season-badge{
+    font-family:var(--cond); font-size:10px; font-weight:700; letter-spacing:0.1em;
+    padding:4px 10px;
+  }
+  .season-badge.active{ background:var(--gold); color:var(--ink); }
+  .season-badge.inactive{ background:rgba(242,232,220,0.07); color:var(--dim); }
+
+  /* --- Crest in list --- */
+  .adm-crest{
+    width:36px; height:36px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--display); font-size:12px; color:#fff;
+    clip-path:polygon(50% 0, 100% 26%, 100% 100%, 0 100%, 0 26%);
+  }
+
+  /* --- Avatar initials --- */
+  .adm-avatar{
+    width:36px; height:36px; flex:none; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--cond); font-size:13px; font-weight:700; color:#fff;
+    background:var(--crimson);
+  }
+
+  /* --- Role badge --- */
+  .role-badge{
+    display:inline-block; font-family:var(--cond); font-size:10px; font-weight:700;
+    letter-spacing:0.1em; padding:3px 8px; text-transform:uppercase;
+    background:rgba(224,168,60,0.14); color:var(--gold-lite);
+  }
+  /* --- Team badge --- */
+  .team-badge{
+    display:inline-block; font-family:var(--cond); font-size:10px; font-weight:700;
+    letter-spacing:0.1em; padding:3px 8px;
+    color:#fff;
+  }
+
+  /* --- Filter pills --- */
+  .adm-filter-row{
+    display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap;
+  }
+  .adm-pill{
+    font-family:var(--cond); font-size:11px; font-weight:600; letter-spacing:0.1em;
+    background:none; border:1px solid var(--line); color:var(--muted);
+    padding:7px 14px; cursor:pointer; transition:all .15s ease;
+  }
+  .adm-pill:hover{ color:var(--bone); }
+  .adm-pill.on{ background:var(--gold); border-color:var(--gold); color:var(--ink); font-weight:700; }
+
+  /* --- Modal --- */
+  .adm-modal-overlay{
+    position:fixed; inset:0; z-index:100;
+    background:rgba(20,10,12,0.85); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .adm-modal{
+    background:var(--ink-2); border:1px solid var(--line-2);
+    width:100%; max-width:480px; padding:28px 30px;
+    max-height:90vh; overflow-y:auto;
+  }
+  .adm-modal-head{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:18px;
+  }
+  .adm-modal-head h3{
+    font-family:var(--display); font-size:20px; color:var(--gold-lite);
+  }
+  .adm-modal-close{
+    background:none; border:none; font-size:28px; color:var(--dim);
+    cursor:pointer; line-height:1; padding:0;
+  }
+  .adm-modal-close:hover{ color:var(--bone); }
+
+  /* --- Empty state --- */
+  .adm-empty{
+    font-family:var(--cond); font-size:13px; color:var(--dim);
+    letter-spacing:0.06em; padding:30px 0; text-align:center;
+  }
+</style>
+
+<script>
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+// ────── DOM refs ──────
+const loginGate    = document.getElementById('login-gate')!;
+const adminUI      = document.getElementById('admin-ui')!;
+const loginForm    = document.getElementById('login-form') as HTMLFormElement;
+const loginError   = document.getElementById('login-error')!;
+const loginSubmit  = document.getElementById('login-submit') as HTMLButtonElement;
+
+// ────── State ──────
+let seasons: any[]  = [];
+let teams: any[]    = [];
+let players: any[]  = [];
+let rosters: any[]  = [];
+let activeSeasonId: string | null = null;
+
+// ═══════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════
+async function checkAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    loginGate.style.display = 'none';
+    adminUI.style.display = 'block';
+    await loadAllData();
+  } else {
+    loginGate.style.display = 'block';
+    adminUI.style.display = 'none';
+  }
+}
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  loginError.style.display = 'none';
+  const email = (document.getElementById('login-email') as HTMLInputElement).value;
+  const password = (document.getElementById('login-pass') as HTMLInputElement).value;
+  loginSubmit.disabled = true;
+  loginSubmit.textContent = 'MEMUAT...';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    loginError.textContent = error.message;
+    loginError.style.display = 'block';
+    loginSubmit.disabled = false;
+    loginSubmit.textContent = 'MASUK';
+  } else {
+    await checkAuth();
+  }
+});
+
+document.getElementById('btn-logout')!.addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  loginGate.style.display = 'block';
+  adminUI.style.display = 'none';
+});
+
+// ═══════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════
+document.querySelectorAll('.ttab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ttab').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const target = (btn as HTMLElement).dataset.tab!;
+    document.querySelectorAll('.pg').forEach(p => (p as HTMLElement).style.display = 'none');
+    document.getElementById(`pg-${target}`)!.style.display = 'block';
+  });
+});
+
+// ═══════════════════════════════════════════
+//  DATA LOADING
+// ═══════════════════════════════════════════
+async function loadAllData() {
+  await Promise.all([loadSeasons(), loadTeams(), loadPlayers()]);
+}
+
+// ---------- SEASONS ----------
+async function loadSeasons() {
+  show('season-loading'); hide('season-content');
+  const { data, error } = await supabase
+    .from('seasons').select('*').order('starts_on', { ascending: false });
+  if (error) { console.error(error); }
+  seasons = data || [];
+  activeSeasonId = seasons.find((s: any) => s.is_active)?.id || null;
+  hide('season-loading'); show('season-content');
+  renderSeasons();
+}
+
+function renderSeasons() {
+  const list = document.getElementById('season-list')!;
+  if (!seasons.length) { list.innerHTML = '<div class="adm-empty">Belum ada season.</div>'; return; }
+  list.innerHTML = seasons.map((s: any) => `
+    <div class="season-card">
+      <span class="season-badge ${s.is_active ? 'active' : 'inactive'}">${s.is_active ? 'AKTIF' : 'NONAKTIF'}</span>
+      <div style="flex:1;min-width:0">
+        <div class="adm-card-name">${esc(s.name)}</div>
+        <div class="adm-card-sub">${s.slug} &middot; ${fmtDate(s.starts_on)} &ndash; ${fmtDate(s.ends_on)}</div>
+      </div>
+      ${!s.is_active ? `<button class="adm-btn sm outline" onclick="window._setActiveSeason('${s.id}')">AKTIFKAN</button>` : ''}
+    </div>
+  `).join('');
+}
+
+document.getElementById('season-form')!.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('season-error')!;
+  errEl.style.display = 'none';
+  const payload = {
+    name:      (document.getElementById('s-name') as HTMLInputElement).value.trim(),
+    slug:      (document.getElementById('s-slug') as HTMLInputElement).value.trim(),
+    starts_on: (document.getElementById('s-start') as HTMLInputElement).value,
+    ends_on:   (document.getElementById('s-end') as HTMLInputElement).value,
+    is_active: (document.getElementById('s-active') as HTMLInputElement).checked,
+  };
+  // If marking active, deactivate others first
+  if (payload.is_active) {
+    await supabase.from('seasons').update({ is_active: false }).neq('id', '00000000-0000-0000-0000-000000000000');
+  }
+  const { error } = await supabase.from('seasons').insert(payload);
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  (document.getElementById('season-form') as HTMLFormElement).reset();
+  await loadSeasons();
+});
+
+(window as any)._setActiveSeason = async (id: string) => {
+  await supabase.from('seasons').update({ is_active: false }).neq('id', id);
+  await supabase.from('seasons').update({ is_active: true }).eq('id', id);
+  await loadSeasons();
+};
+
+// ---------- TEAMS ----------
+async function loadTeams() {
+  show('tim-loading'); hide('tim-content');
+  const { data: tData } = await supabase.from('teams').select('*').order('name');
+  teams = tData || [];
+  // get player counts per team from rosters in active season
+  const { data: rData } = await supabase.from('team_rosters').select('team_id');
+  const counts: Record<string,number> = {};
+  (rData || []).forEach((r: any) => { counts[r.team_id] = (counts[r.team_id] || 0) + 1; });
+  teams.forEach((t: any) => { t._playerCount = counts[t.id] || 0; });
+  hide('tim-loading'); show('tim-content');
+  renderTeams();
+  updateTeamStats();
+  populateTeamFilters();
+  populateTeamSelect();
+}
+
+function renderTeams() {
+  const list = document.getElementById('tim-list')!;
+  if (!teams.length) { list.innerHTML = '<div class="adm-empty">Belum ada tim.</div>'; return; }
+  list.innerHTML = teams.map((t: any) => `
+    <div class="adm-card">
+      <div class="adm-crest" style="background:${esc(t.color || '#555')}">${esc(t.code)}</div>
+      <div class="adm-card-info">
+        <div class="adm-card-name">${esc(t.name)}</div>
+        <div class="adm-card-sub">${esc(t.code)} &middot; ${t._playerCount} pemain</div>
+      </div>
+      <div class="adm-card-actions">
+        <button class="adm-btn sm outline" onclick="window._editTeam('${t.id}')">EDIT</button>
+        <button class="adm-btn sm danger" onclick="window._deleteTeam('${t.id}','${esc(t.name)}')">HAPUS</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateTeamStats() {
+  document.getElementById('stat-teams')!.textContent = String(teams.length);
+  const totalP = teams.reduce((s: number, t: any) => s + t._playerCount, 0);
+  document.getElementById('stat-players-all')!.textContent = String(totalP);
+}
+
+let editingTeamId: string | null = null;
+
+document.getElementById('tim-form')!.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('tim-error')!;
+  errEl.style.display = 'none';
+  const payload = {
+    code:     (document.getElementById('t-code') as HTMLInputElement).value.trim().toUpperCase(),
+    name:     (document.getElementById('t-name') as HTMLInputElement).value.trim(),
+    color:    (document.getElementById('t-color') as HTMLInputElement).value,
+    logo_url: (document.getElementById('t-logo') as HTMLInputElement).value.trim() || null,
+  };
+  let error;
+  if (editingTeamId) {
+    ({ error } = await supabase.from('teams').update(payload).eq('id', editingTeamId));
+  } else {
+    ({ error } = await supabase.from('teams').insert(payload));
+  }
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  resetTeamForm();
+  await loadTeams();
+});
+
+function resetTeamForm() {
+  editingTeamId = null;
+  (document.getElementById('tim-form') as HTMLFormElement).reset();
+  (document.getElementById('t-color') as HTMLInputElement).value = '#B02233';
+  document.getElementById('t-color-hex')!.textContent = '#B02233';
+  document.getElementById('tim-form-title')!.textContent = 'Tambah Tim';
+  document.getElementById('tim-submit-btn')!.textContent = 'SIMPAN TIM';
+  document.getElementById('tim-cancel-btn')!.style.display = 'none';
+}
+
+document.getElementById('tim-cancel-btn')!.addEventListener('click', resetTeamForm);
+
+(window as any)._editTeam = (id: string) => {
+  const t = teams.find((x: any) => x.id === id);
+  if (!t) return;
+  editingTeamId = id;
+  (document.getElementById('t-code') as HTMLInputElement).value = t.code;
+  (document.getElementById('t-name') as HTMLInputElement).value = t.name;
+  (document.getElementById('t-color') as HTMLInputElement).value = t.color || '#B02233';
+  document.getElementById('t-color-hex')!.textContent = t.color || '#B02233';
+  (document.getElementById('t-logo') as HTMLInputElement).value = t.logo_url || '';
+  document.getElementById('tim-form-title')!.textContent = 'Edit Tim';
+  document.getElementById('tim-submit-btn')!.textContent = 'UPDATE TIM';
+  document.getElementById('tim-cancel-btn')!.style.display = 'inline-block';
+  document.getElementById('tim-form')!.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+(window as any)._deleteTeam = async (id: string, name: string) => {
+  if (!confirm(`Hapus tim "${name}"? Data terkait juga akan terhapus.`)) return;
+  const { error } = await supabase.from('teams').delete().eq('id', id);
+  if (error) { alert('Gagal menghapus: ' + error.message); return; }
+  if (editingTeamId === id) resetTeamForm();
+  await loadTeams();
+};
+
+// color hex preview
+document.getElementById('t-color')!.addEventListener('input', (e) => {
+  document.getElementById('t-color-hex')!.textContent = (e.target as HTMLInputElement).value;
+});
+
+// ---------- PLAYERS ----------
+async function loadPlayers() {
+  show('pemain-loading'); hide('pemain-content');
+  const { data: pData } = await supabase.from('players').select('*').order('handle');
+  players = pData || [];
+  const { data: rData } = await supabase
+    .from('team_rosters')
+    .select('*')
+    .is('left_on', null);
+  rosters = rData || [];
+  // attach roster info to players
+  players.forEach((p: any) => {
+    const r = rosters.find((ro: any) => ro.player_id === p.id);
+    p._roster = r || null;
+    p._team = r ? teams.find((t: any) => t.id === r.team_id) : null;
+  });
+  hide('pemain-loading'); show('pemain-content');
+  renderPlayers();
+  updatePlayerStats();
+}
+
+let playerFilterTeam = 'all';
+
+function renderPlayers(filter?: string) {
+  if (filter !== undefined) playerFilterTeam = filter;
+  const list = document.getElementById('pemain-list')!;
+  let filtered = players;
+  if (playerFilterTeam !== 'all') {
+    filtered = players.filter((p: any) => p._team?.id === playerFilterTeam);
+  }
+  if (!filtered.length) {
+    list.innerHTML = '<div class="adm-empty">Tidak ada pemain.</div>';
+    return;
+  }
+  list.innerHTML = filtered.map((p: any) => {
+    const initials = getInitials(p.handle);
+    const teamColor = p._team?.color || 'var(--crimson)';
+    const roleName = p._roster?.primary_role ? roleLabel(p._roster.primary_role) : '';
+    return `
+      <div class="adm-card">
+        <div class="adm-avatar" style="background:${esc(teamColor)}">${esc(initials)}</div>
+        <div class="adm-card-info">
+          <div class="adm-card-name">${esc(p.handle)}</div>
+          <div class="adm-card-sub">
+            ${p.display_name ? esc(p.display_name) + ' &middot; ' : ''}
+            ${roleName ? `<span class="role-badge">${esc(roleName)}</span> ` : ''}
+            ${p._team ? `<span class="team-badge" style="background:${esc(p._team.color || '#555')}">${esc(p._team.code)}</span>` : '<span style="color:var(--dim);font-family:var(--cond);font-size:10px;letter-spacing:0.08em">TANPA TIM</span>'}
+          </div>
+        </div>
+        <div class="adm-card-actions">
+          <button class="adm-btn sm outline" onclick="window._editPlayer('${p.id}')">EDIT</button>
+          <button class="adm-btn sm danger" onclick="window._deletePlayer('${p.id}','${esc(p.handle)}')">HAPUS</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updatePlayerStats() {
+  document.getElementById('stat-pemain')!.textContent = String(players.length);
+  const rostered = players.filter((p: any) => p._roster).length;
+  document.getElementById('stat-rostered')!.textContent = String(rostered);
+}
+
+function populateTeamFilters() {
+  const row = document.querySelector('.adm-filter-row')!;
+  row.innerHTML = `<button class="adm-pill ${playerFilterTeam === 'all' ? 'on' : ''}" data-team="all">SEMUA</button>`;
+  teams.forEach((t: any) => {
+    row.innerHTML += `<button class="adm-pill ${playerFilterTeam === t.id ? 'on' : ''}" data-team="${t.id}">${esc(t.code)}</button>`;
+  });
+  row.querySelectorAll('.adm-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      row.querySelectorAll('.adm-pill').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      renderPlayers((btn as HTMLElement).dataset.team!);
+    });
+  });
+}
+
+function populateTeamSelect() {
+  const sel = document.getElementById('p-team') as HTMLSelectElement;
+  sel.innerHTML = '<option value="">— Tidak ada —</option>';
+  teams.forEach((t: any) => {
+    sel.innerHTML += `<option value="${t.id}">${esc(t.code)} — ${esc(t.name)}</option>`;
+  });
+}
+
+// ---------- PLAYER MODAL ----------
+const playerModal = document.getElementById('player-modal')!;
+let editingPlayerId: string | null = null;
+
+document.getElementById('btn-add-player')!.addEventListener('click', () => {
+  editingPlayerId = null;
+  (document.getElementById('pemain-form') as HTMLFormElement).reset();
+  (document.getElementById('p-id') as HTMLInputElement).value = '';
+  (document.getElementById('p-roster-id') as HTMLInputElement).value = '';
+  document.getElementById('player-modal-title')!.textContent = 'Tambah Pemain';
+  document.getElementById('pemain-submit-btn')!.textContent = 'SIMPAN PEMAIN';
+  document.getElementById('pemain-error')!.style.display = 'none';
+  playerModal.style.display = 'flex';
+});
+
+document.getElementById('player-modal-close')!.addEventListener('click', () => {
+  playerModal.style.display = 'none';
+});
+
+document.getElementById('pemain-cancel-btn')!.addEventListener('click', () => {
+  playerModal.style.display = 'none';
+});
+
+playerModal.addEventListener('click', (e) => {
+  if (e.target === playerModal) playerModal.style.display = 'none';
+});
+
+(window as any)._editPlayer = (id: string) => {
+  const p = players.find((x: any) => x.id === id);
+  if (!p) return;
+  editingPlayerId = id;
+  (document.getElementById('p-id') as HTMLInputElement).value = id;
+  (document.getElementById('p-handle') as HTMLInputElement).value = p.handle || '';
+  (document.getElementById('p-display') as HTMLInputElement).value = p.display_name || '';
+  (document.getElementById('p-nat') as HTMLInputElement).value = p.nationality || '';
+  (document.getElementById('p-team') as HTMLSelectElement).value = p._roster?.team_id || '';
+  (document.getElementById('p-role') as HTMLSelectElement).value = p._roster?.primary_role || '';
+  (document.getElementById('p-roster-id') as HTMLInputElement).value = p._roster?.id || '';
+  document.getElementById('player-modal-title')!.textContent = 'Edit Pemain';
+  document.getElementById('pemain-submit-btn')!.textContent = 'UPDATE PEMAIN';
+  document.getElementById('pemain-error')!.style.display = 'none';
+  playerModal.style.display = 'flex';
+};
+
+(window as any)._deletePlayer = async (id: string, handle: string) => {
+  if (!confirm(`Hapus pemain "${handle}"? Roster terkait juga akan terhapus.`)) return;
+  // delete roster entries first
+  await supabase.from('team_rosters').delete().eq('player_id', id);
+  const { error } = await supabase.from('players').delete().eq('id', id);
+  if (error) { alert('Gagal menghapus: ' + error.message); return; }
+  await loadPlayers();
+};
+
+document.getElementById('pemain-form')!.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('pemain-error')!;
+  errEl.style.display = 'none';
+
+  const handle      = (document.getElementById('p-handle') as HTMLInputElement).value.trim();
+  const displayName = (document.getElementById('p-display') as HTMLInputElement).value.trim() || null;
+  const nationality = (document.getElementById('p-nat') as HTMLInputElement).value.trim() || null;
+  const teamId      = (document.getElementById('p-team') as HTMLSelectElement).value || null;
+  const role        = (document.getElementById('p-role') as HTMLSelectElement).value || null;
+  const rosterId    = (document.getElementById('p-roster-id') as HTMLInputElement).value || null;
+
+  let playerId = editingPlayerId;
+
+  if (editingPlayerId) {
+    // update player
+    const { error } = await supabase.from('players').update({
+      handle, display_name: displayName, nationality
+    }).eq('id', editingPlayerId);
+    if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  } else {
+    // insert player
+    const { data, error } = await supabase.from('players').insert({
+      handle, display_name: displayName, nationality
+    }).select().single();
+    if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+    playerId = data.id;
+  }
+
+  // handle roster
+  if (teamId && role && activeSeasonId) {
+    if (rosterId) {
+      // update existing roster entry
+      await supabase.from('team_rosters').update({
+        team_id: teamId, primary_role: role, season_id: activeSeasonId
+      }).eq('id', rosterId);
+    } else {
+      // check if roster entry already exists
+      const { data: existing } = await supabase.from('team_rosters')
+        .select('id')
+        .eq('season_id', activeSeasonId)
+        .eq('player_id', playerId!)
+        .is('left_on', null)
+        .maybeSingle();
+      if (existing) {
+        await supabase.from('team_rosters').update({
+          team_id: teamId, primary_role: role
+        }).eq('id', existing.id);
+      } else {
+        const { error: rErr } = await supabase.from('team_rosters').insert({
+          season_id: activeSeasonId, team_id: teamId, player_id: playerId, primary_role: role, joined_on: new Date().toISOString().slice(0, 10)
+        });
+        if (rErr) { errEl.textContent = 'Pemain tersimpan, tapi roster gagal: ' + rErr.message; errEl.style.display = 'block'; }
+      }
+    }
+  } else if (!teamId && rosterId) {
+    // remove from roster
+    await supabase.from('team_rosters').update({ left_on: new Date().toISOString().slice(0, 10) }).eq('id', rosterId);
+  }
+
+  playerModal.style.display = 'none';
+  await loadPlayers();
+  await loadTeams(); // refresh player counts
+});
+
+// ═══════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════
+function show(id: string) { document.getElementById(id)!.style.display = 'block'; }
+function hide(id: string) { document.getElementById(id)!.style.display = 'none'; }
+
+function esc(str: string): string {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function fmtDate(iso: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function getInitials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
+
+function roleLabel(role: string): string {
+  const map: Record<string,string> = {
+    clash_lane: 'CLASH',
+    jungle: 'JUNGLE',
+    mid_lane: 'MID',
+    farm_lane: 'FARM',
+    roam: 'ROAM',
+  };
+  return map[role] || role.toUpperCase();
+}
+
+// ── Kick off ──
+checkAuth();
+</script>

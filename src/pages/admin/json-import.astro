@@ -1,0 +1,1021 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Import JSON — Indonesia Kings Laga">
+
+<style>
+  /* ===== Admin: JSON Import ===== */
+  .admin-gate{display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:18px; text-align:center;}
+  .admin-gate h2{font-family:var(--display); font-size:28px; color:var(--bone);}
+  .admin-gate p{color:var(--muted); font-size:14px; max-width:40ch;}
+
+  .login-form{display:flex; flex-direction:column; gap:12px; width:100%; max-width:340px;}
+  .login-form input{
+    font-family:var(--body); font-size:14px;
+    background:var(--ink-2); border:1px solid var(--line-2); color:var(--bone);
+    padding:12px 16px; outline:none;
+  }
+  .login-form input::placeholder{color:var(--dim);}
+  .login-form input:focus{border-color:var(--gold);}
+  .login-err{color:var(--crimson-lite); font-size:13px; min-height:20px;}
+
+  .admin-wrap{max-width:1240px; margin:0 auto; padding:0 22px;}
+  .admin-content{display:none;}
+
+  .adm-section{padding:36px 0; border-top:1px solid var(--line);}
+  .adm-section:first-child{border-top:none; padding-top:24px;}
+
+  .adm-head{margin-bottom:20px;}
+  .adm-head .idx{
+    font-family:var(--cond); font-size:10.5px; font-weight:700; letter-spacing:0.22em;
+    color:var(--gold); display:block; margin-bottom:5px;
+  }
+  .adm-head h2{font-family:var(--display); font-size:clamp(20px,3vw,28px); color:var(--bone);}
+  .adm-head p{margin:6px 0 0; font-size:13px; color:var(--muted); max-width:60ch;}
+
+  /* Schema block */
+  .schema-wrap{
+    background:var(--ink-2); border:1px solid var(--line); border-radius:4px;
+    overflow-x:auto; position:relative;
+  }
+  .schema-wrap pre{
+    margin:0; padding:18px 20px; font-family:'Courier New', monospace; font-size:12.5px;
+    line-height:1.6; color:var(--bone); white-space:pre; tab-size:2;
+  }
+  .schema-wrap .json-key{color:var(--gold-lite);}
+  .schema-wrap .json-str{color:var(--crimson-lite);}
+  .schema-wrap .json-num{color:#6EC8A0;}
+  .schema-wrap .json-brace{color:var(--dim);}
+
+  .copy-btn{
+    position:absolute; top:10px; right:10px;
+    font-family:var(--cond); font-size:11px; font-weight:700; letter-spacing:0.1em;
+    background:var(--panel); border:1px solid var(--line-2); color:var(--gold-lite);
+    padding:6px 14px; cursor:pointer; transition:background .15s;
+  }
+  .copy-btn:hover{background:var(--gold); color:var(--ink);}
+
+  /* Paste zone */
+  .paste-zone{
+    background:var(--ink-2); border:2px dashed var(--line-2); border-radius:4px;
+    min-height:200px; position:relative; transition:border-color .2s;
+  }
+  .paste-zone.dragover{border-color:var(--gold); background:rgba(224,168,60,0.04);}
+  .paste-zone textarea{
+    width:100%; min-height:200px; resize:vertical;
+    background:transparent; border:none; color:var(--bone);
+    font-family:'Courier New', monospace; font-size:12.5px; line-height:1.5;
+    padding:16px 18px; outline:none;
+  }
+  .paste-zone textarea::placeholder{color:var(--dim);}
+
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+  .adm-btn{
+    font-family:var(--cond); font-size:12px; font-weight:700; letter-spacing:0.1em;
+    border:1px solid var(--line-2); color:var(--gold-lite); background:transparent;
+    padding:10px 20px; cursor:pointer; transition:all .15s;
+  }
+  .adm-btn:hover{background:var(--gold); color:var(--ink); border-color:var(--gold);}
+  .adm-btn:disabled{opacity:0.4; pointer-events:none;}
+  .adm-btn.primary{background:var(--crimson); border-color:var(--crimson); color:#fff;}
+  .adm-btn.primary:hover{background:var(--crimson-lite); border-color:var(--crimson-lite);}
+  .adm-btn.danger{border-color:var(--crimson); color:var(--crimson-lite);}
+  .adm-btn.danger:hover{background:var(--crimson); color:#fff;}
+  .adm-btn.success{background:var(--green); border-color:var(--green); color:#fff;}
+  .adm-btn.success:hover{background:#25b888;}
+
+  /* Validation */
+  .val-list{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px;}
+  .val-item{
+    font-family:var(--cond); font-size:13px; padding:8px 14px;
+    display:flex; align-items:center; gap:10px;
+    background:rgba(255,255,255,0.02); border-left:3px solid var(--dim);
+  }
+  .val-item.ok{border-left-color:var(--green); color:#6EC8A0;}
+  .val-item.err{border-left-color:var(--crimson-lite); color:var(--crimson-lite); background:rgba(201,51,63,0.06);}
+  .val-item.warn{border-left-color:var(--gold); color:var(--gold-lite); background:rgba(224,168,60,0.04);}
+  .val-icon{font-size:15px; flex:none; width:20px; text-align:center;}
+
+  /* Preview */
+  .preview-box{display:none;}
+  .score-strip{
+    display:flex; align-items:center; justify-content:center; gap:24px;
+    padding:24px; background:var(--ink-2); border:1px solid var(--line); margin-bottom:20px;
+  }
+  .score-strip .team{
+    font-family:var(--display); font-size:clamp(18px,3vw,26px); color:var(--bone);
+    display:flex; align-items:center; gap:12px;
+  }
+  .score-strip .team.winner{color:var(--gold-lite);}
+  .score-strip .team.loser{color:var(--dim);}
+  .score-strip .vs{font-family:var(--cond); font-size:12px; color:var(--dim); letter-spacing:0.2em;}
+  .score-strip .badge{
+    display:inline-block; font-family:var(--cond); font-size:9px; font-weight:700;
+    letter-spacing:0.12em; padding:3px 8px; margin-left:6px;
+  }
+  .score-strip .badge.w{background:var(--gold); color:var(--ink);}
+  .score-strip .badge.l{background:rgba(242,232,220,0.07); color:var(--dim);}
+  .score-strip .dur{font-family:var(--cond); font-size:13px; color:var(--muted);}
+  .score-strip .mvp-tag{font-family:var(--cond); font-size:11px; color:var(--gold-lite); margin-top:4px;}
+
+  .obj-table{width:100%; border-collapse:collapse; margin-bottom:20px;}
+  .obj-table th{
+    font-family:var(--cond); font-size:10px; font-weight:600; letter-spacing:0.12em;
+    color:var(--dim); padding:8px 10px; text-align:center;
+    border-bottom:1px solid var(--line);
+  }
+  .obj-table th:first-child{text-align:left;}
+  .obj-table td{
+    font-family:var(--cond); font-size:14px; padding:8px 10px; text-align:center;
+    border-bottom:1px solid rgba(224,168,60,0.07); color:var(--bone);
+  }
+  .obj-table td:first-child{text-align:left; font-weight:700;}
+  .obj-table tr.winner-row td{color:var(--gold-lite);}
+
+  .sb-wrap{overflow-x:auto; margin-bottom:20px;}
+  .sb-wrap table{width:100%; border-collapse:collapse;}
+  .sb-wrap table th{
+    font-family:var(--cond); font-size:10px; font-weight:600; letter-spacing:0.12em;
+    color:var(--dim); text-align:right; padding:9px 10px; white-space:nowrap;
+    border-bottom:1px solid var(--line);
+  }
+  .sb-wrap table th:first-child,.sb-wrap table th:nth-child(2),.sb-wrap table th:nth-child(3){text-align:left;}
+  .sb-wrap table td{
+    font-family:var(--cond); font-size:13px; padding:9px 10px; text-align:right;
+    border-bottom:1px solid rgba(224,168,60,0.07); white-space:nowrap; color:var(--bone);
+  }
+  .sb-wrap table td:first-child,.sb-wrap table td:nth-child(2),.sb-wrap table td:nth-child(3){text-align:left;}
+  .sb-wrap table tbody tr:hover{background:rgba(224,168,60,0.04);}
+  .team-label{
+    font-family:var(--cond); font-size:12px; font-weight:700; letter-spacing:0.14em;
+    color:var(--gold); margin-bottom:8px;
+  }
+
+  /* Save */
+  .save-log{
+    background:var(--ink-2); border:1px solid var(--line); border-radius:4px;
+    padding:16px 18px; font-family:'Courier New', monospace; font-size:12px;
+    line-height:1.8; color:var(--muted); max-height:400px; overflow-y:auto;
+    display:none;
+  }
+  .save-log .step{color:var(--bone);}
+  .save-log .ok{color:#6EC8A0;}
+  .save-log .fail{color:var(--crimson-lite);}
+  .save-log .info{color:var(--gold-lite);}
+
+  /* Recent imports */
+  .recent-list{display:flex; flex-direction:column; gap:6px;}
+  .recent-item{
+    display:flex; align-items:center; gap:14px; padding:10px 14px;
+    background:rgba(255,255,255,0.015); border-left:3px solid var(--line-2);
+    font-family:var(--cond); font-size:13px; color:var(--bone);
+  }
+  .recent-item .code{font-weight:700; color:var(--gold-lite); min-width:60px;}
+  .recent-item .meta{color:var(--muted); font-size:12px;}
+  .recent-item .ts{color:var(--dim); font-size:11px; margin-left:auto;}
+
+  /* Duplicate dialog */
+  .dup-overlay{
+    display:none; position:fixed; inset:0; z-index:100;
+    background:rgba(20,10,12,0.85); align-items:center; justify-content:center;
+  }
+  .dup-overlay.show{display:flex;}
+  .dup-dialog{
+    background:var(--panel); border:1px solid var(--line-2); padding:28px 32px;
+    max-width:440px; width:90%;
+  }
+  .dup-dialog h3{font-family:var(--display); font-size:22px; color:var(--crimson-lite); margin-bottom:10px;}
+  .dup-dialog p{font-size:14px; color:var(--muted); margin:0 0 18px;}
+  .dup-dialog .btn-row{justify-content:flex-end;}
+
+  .spinner{display:inline-block; width:16px; height:16px; border:2px solid var(--line-2); border-top-color:var(--gold); border-radius:50%; animation:spin .6s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  @media(max-width:680px){
+    .score-strip{flex-direction:column; gap:12px;}
+    .btn-row{flex-direction:column;}
+    .adm-btn{width:100%; text-align:center;}
+  }
+</style>
+
+<!-- Auth Gate -->
+<div class="admin-wrap">
+  <div class="admin-gate" id="authGate">
+    <h2>ADMIN LOGIN</h2>
+    <p>Masuk untuk mengakses halaman import data JSON.</p>
+    <form class="login-form" id="loginForm">
+      <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required />
+      <input type="password" id="loginPwd" placeholder="Password" autocomplete="current-password" required />
+      <button class="adm-btn primary" type="submit">MASUK</button>
+      <div class="login-err" id="loginErr"></div>
+    </form>
+  </div>
+
+  <div class="admin-content" id="adminContent">
+
+    <!-- Section 1: Schema -->
+    <div class="adm-section">
+      <div class="adm-head">
+        <span class="idx">01 — SKEMA JSON</span>
+        <h2>FORMAT DATA YANG DITERIMA</h2>
+        <p>Tempel JSON hasil ekstraksi screenshot scoreboard. Gunakan tombol "Salin Skema" untuk menyalin format sebagai prompt AI.</p>
+      </div>
+      <div class="schema-wrap">
+        <button class="copy-btn" id="copySchemaBtn">SALIN SKEMA</button>
+        <pre id="schemaBlock"></pre>
+      </div>
+    </div>
+
+    <!-- Section 2: Paste Zone -->
+    <div class="adm-section">
+      <div class="adm-head">
+        <span class="idx">02 — INPUT DATA</span>
+        <h2>TEMPEL ATAU DROP JSON</h2>
+        <p>Tempel JSON di area bawah, atau seret file .json ke sini.</p>
+      </div>
+      <div class="paste-zone" id="pasteZone">
+        <textarea id="jsonInput" placeholder='Tempel JSON di sini, atau seret file .json ...' spellcheck="false"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="adm-btn primary" id="btnValidate">VALIDASI &amp; PREVIEW</button>
+        <button class="adm-btn" id="btnLoadExample">LOAD CONTOH</button>
+        <button class="adm-btn danger" id="btnClear">KOSONGKAN</button>
+      </div>
+    </div>
+
+    <!-- Section 3: Validation -->
+    <div class="adm-section" id="valSection" style="display:none;">
+      <div class="adm-head">
+        <span class="idx">03 — VALIDASI</span>
+        <h2>HASIL PEMERIKSAAN</h2>
+      </div>
+      <ul class="val-list" id="valList"></ul>
+    </div>
+
+    <!-- Section 4: Preview -->
+    <div class="adm-section preview-box" id="previewSection">
+      <div class="adm-head">
+        <span class="idx">04 — PREVIEW</span>
+        <h2>PRATINJAU DATA</h2>
+      </div>
+      <div id="previewContent"></div>
+    </div>
+
+    <!-- Section 5: Save -->
+    <div class="adm-section" id="saveSection" style="display:none;">
+      <div class="adm-head">
+        <span class="idx">05 — SIMPAN</span>
+        <h2>SIMPAN KE SUPABASE</h2>
+        <p>Tekan tombol di bawah untuk menyimpan data ke database.</p>
+      </div>
+      <div class="btn-row" style="margin-bottom:16px;">
+        <button class="adm-btn success" id="btnSave">SIMPAN KE SUPABASE</button>
+      </div>
+      <div class="save-log" id="saveLog"></div>
+    </div>
+
+    <!-- Duplicate dialog -->
+    <div class="dup-overlay" id="dupOverlay">
+      <div class="dup-dialog">
+        <h3>DATA SUDAH ADA</h3>
+        <p id="dupMsg">Game ini sudah tercatat di database. Timpa data yang ada?</p>
+        <div class="btn-row">
+          <button class="adm-btn" id="dupCancel">BATAL</button>
+          <button class="adm-btn danger" id="dupOverwrite">TIMPA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6: Recent -->
+    <div class="adm-section">
+      <div class="adm-head">
+        <span class="idx">06 — RIWAYAT</span>
+        <h2>IMPORT TERBARU</h2>
+      </div>
+      <div class="recent-list" id="recentList">
+        <div style="color:var(--dim); font-size:13px;">Memuat...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+);
+
+/* ───── constants ───── */
+const VALID_LANES = ['clash_lane', 'mid_lane', 'exp_lane', 'jungle', 'roam'];
+
+const SCHEMA_EXAMPLE = {
+  match: {
+    id: "M1",
+    tanggal: "2026-08-02",
+    minggu: "Minggu 1",
+    format: "Bo5",
+    tim_a: { kode: "OG", nama: "OG Esports" },
+    tim_b: { kode: "AE", nama: "Alter Ego" }
+  },
+  game: {
+    nomor: 1,
+    durasi: "11:47",
+    pemenang: "OG",
+    gold_tim: { OG: 43219, AE: 31929 },
+    objektif: {
+      OG: { tower: 9, tyrant: 2, shadow_tyrant: 1, tempest_dragon: 0, overlord: 0, shadow_overlord: 1 },
+      AE: { tower: 1, tyrant: 0, shadow_tyrant: 0, tempest_dragon: 0, overlord: 0, shadow_overlord: 0 }
+    },
+    mvp: { pemain: "OG.Ahem", hero: "Chano" },
+    pemain: [
+      { nama: "OG.iHanss", tim: "OG", lane: "clash_lane", hero: "Lian Po", k: 2, d: 1, a: 3, damage_dealt: 45511, damage_taken: 40353, gold: 9459, teamfight: 50 },
+      { nama: "OG.Watt", tim: "OG", lane: "mid_lane", hero: "Lunox", k: 4, d: 0, a: 5, damage_dealt: 52300, damage_taken: 18200, gold: 10200, teamfight: 78 },
+      { nama: "OG.Butss", tim: "OG", lane: "exp_lane", hero: "Esmeralda", k: 3, d: 1, a: 4, damage_dealt: 38000, damage_taken: 35000, gold: 8800, teamfight: 65 },
+      { nama: "OG.Ahem", tim: "OG", lane: "jungle", hero: "Chano", k: 5, d: 0, a: 6, damage_dealt: 48000, damage_taken: 22000, gold: 11500, teamfight: 82 },
+      { nama: "OG.FLPSd", tim: "OG", lane: "roam", hero: "Khufra", k: 0, d: 2, a: 10, damage_dealt: 12000, damage_taken: 42000, gold: 3260, teamfight: 90 },
+      { nama: "AE.Pai", tim: "AE", lane: "clash_lane", hero: "Fredrinn", k: 1, d: 3, a: 1, damage_dealt: 28000, damage_taken: 38000, gold: 6800, teamfight: 45 },
+      { nama: "AE.Celiboy", tim: "AE", lane: "mid_lane", hero: "Yve", k: 1, d: 2, a: 1, damage_dealt: 35000, damage_taken: 15000, gold: 7200, teamfight: 55 },
+      { nama: "AE.Ahmad", tim: "AE", lane: "exp_lane", hero: "Arlott", k: 0, d: 3, a: 2, damage_dealt: 22000, damage_taken: 30000, gold: 6000, teamfight: 40 },
+      { nama: "AE.Leomurphy", tim: "AE", lane: "jungle", hero: "Ling", k: 1, d: 3, a: 0, damage_dealt: 31000, damage_taken: 20000, gold: 7929, teamfight: 35 },
+      { nama: "AE.Udil", tim: "AE", lane: "roam", hero: "Akai", k: 0, d: 3, a: 2, damage_dealt: 9000, damage_taken: 40000, gold: 4000, teamfight: 60 }
+    ]
+  }
+};
+
+const SCHEMA_PROMPT_TEXT = `Ekstrak data dari screenshot scoreboard game Mobile Legends ke format JSON berikut. Pastikan semua field terisi.
+
+${JSON.stringify(SCHEMA_EXAMPLE, null, 2)}
+
+Catatan:
+- match.id: kode match unik (contoh: M1, M2)
+- tanggal: format YYYY-MM-DD
+- format: Bo1, Bo3, Bo5, atau Bo7
+- lane: clash_lane, mid_lane, exp_lane, jungle, atau roam
+- durasi: format MM:SS
+- gold_tim: total gold masing-masing tim
+- objektif: tower, tyrant, shadow_tyrant, tempest_dragon, overlord, shadow_overlord
+- teamfight: persentase partisipasi teamfight (0-100)
+- mvp.pemain: harus sama persis dengan salah satu nama di daftar pemain`;
+
+/* ───── DOM refs ───── */
+const authGate = document.getElementById('authGate')!;
+const adminContent = document.getElementById('adminContent')!;
+const loginForm = document.getElementById('loginForm')!;
+const loginEmail = document.getElementById('loginEmail') as HTMLInputElement;
+const loginPwd = document.getElementById('loginPwd') as HTMLInputElement;
+const loginErr = document.getElementById('loginErr')!;
+const schemaBlock = document.getElementById('schemaBlock')!;
+const copySchemaBtn = document.getElementById('copySchemaBtn')!;
+const jsonInput = document.getElementById('jsonInput') as HTMLTextAreaElement;
+const pasteZone = document.getElementById('pasteZone')!;
+const btnValidate = document.getElementById('btnValidate')!;
+const btnLoadExample = document.getElementById('btnLoadExample')!;
+const btnClear = document.getElementById('btnClear')!;
+const valSection = document.getElementById('valSection')!;
+const valList = document.getElementById('valList')!;
+const previewSection = document.getElementById('previewSection')!;
+const previewContent = document.getElementById('previewContent')!;
+const saveSection = document.getElementById('saveSection')!;
+const btnSave = document.getElementById('btnSave')!;
+const saveLog = document.getElementById('saveLog')!;
+const recentList = document.getElementById('recentList')!;
+const dupOverlay = document.getElementById('dupOverlay')!;
+const dupMsg = document.getElementById('dupMsg')!;
+const dupCancel = document.getElementById('dupCancel')!;
+const dupOverwrite = document.getElementById('dupOverwrite')!;
+
+let parsedData: typeof SCHEMA_EXAMPLE | null = null;
+let dupResolve: ((v: boolean) => void) | null = null;
+
+/* ───── auth ───── */
+async function checkAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    authGate.style.display = 'none';
+    adminContent.style.display = 'block';
+    loadRecent();
+  }
+}
+checkAuth();
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  loginErr.textContent = '';
+  const { error } = await supabase.auth.signInWithPassword({
+    email: loginEmail.value,
+    password: loginPwd.value
+  });
+  if (error) {
+    loginErr.textContent = 'Login gagal: ' + error.message;
+  } else {
+    authGate.style.display = 'none';
+    adminContent.style.display = 'block';
+    loadRecent();
+  }
+});
+
+/* ───── schema display ───── */
+function highlightJSON(obj: unknown, indent = 0): string {
+  const pad = '  '.repeat(indent);
+  if (obj === null) return '<span class="json-num">null</span>';
+  if (typeof obj === 'number') return `<span class="json-num">${obj}</span>`;
+  if (typeof obj === 'string') return `<span class="json-str">"${escHtml(obj)}"</span>`;
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '<span class="json-brace">[]</span>';
+    const items = obj.map(v => pad + '  ' + highlightJSON(v, indent + 1));
+    return '<span class="json-brace">[</span>\n' + items.join(',\n') + '\n' + pad + '<span class="json-brace">]</span>';
+  }
+  if (typeof obj === 'object') {
+    const entries = Object.entries(obj as Record<string, unknown>);
+    if (entries.length === 0) return '<span class="json-brace">{}</span>';
+    const lines = entries.map(([k, v]) =>
+      pad + '  ' + `<span class="json-key">"${escHtml(k)}"</span>: ` + highlightJSON(v, indent + 1)
+    );
+    return '<span class="json-brace">{</span>\n' + lines.join(',\n') + '\n' + pad + '<span class="json-brace">}</span>';
+  }
+  return String(obj);
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Show a minimal schema (first player only) for display
+const displaySchema = JSON.parse(JSON.stringify(SCHEMA_EXAMPLE));
+displaySchema.game.pemain = [displaySchema.game.pemain[0]];
+schemaBlock.innerHTML = highlightJSON(displaySchema);
+
+copySchemaBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(SCHEMA_PROMPT_TEXT).then(() => {
+    copySchemaBtn.textContent = 'TERSALIN!';
+    setTimeout(() => { copySchemaBtn.textContent = 'SALIN SKEMA'; }, 2000);
+  });
+});
+
+/* ───── drag & drop ───── */
+pasteZone.addEventListener('dragover', (e) => { e.preventDefault(); pasteZone.classList.add('dragover'); });
+pasteZone.addEventListener('dragleave', () => pasteZone.classList.remove('dragover'));
+pasteZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  pasteZone.classList.remove('dragover');
+  const file = (e as DragEvent).dataTransfer?.files[0];
+  if (file && file.name.endsWith('.json')) {
+    const reader = new FileReader();
+    reader.onload = () => { jsonInput.value = reader.result as string; };
+    reader.readAsText(file);
+  }
+});
+
+/* ───── buttons ───── */
+btnLoadExample.addEventListener('click', () => {
+  jsonInput.value = JSON.stringify(SCHEMA_EXAMPLE, null, 2);
+});
+
+btnClear.addEventListener('click', () => {
+  jsonInput.value = '';
+  valSection.style.display = 'none';
+  previewSection.style.display = 'none';
+  saveSection.style.display = 'none';
+  saveLog.style.display = 'none';
+  parsedData = null;
+});
+
+btnValidate.addEventListener('click', () => {
+  runValidation();
+});
+
+/* ───── validation ───── */
+interface ValResult { status: 'ok' | 'err' | 'warn'; msg: string; }
+
+function runValidation() {
+  valSection.style.display = 'block';
+  previewSection.style.display = 'none';
+  saveSection.style.display = 'none';
+  saveLog.style.display = 'none';
+  parsedData = null;
+
+  const results: ValResult[] = [];
+  let data: typeof SCHEMA_EXAMPLE;
+
+  // Parse JSON
+  try {
+    data = JSON.parse(jsonInput.value.trim());
+  } catch (e) {
+    results.push({ status: 'err', msg: `JSON tidak valid: ${(e as Error).message}` });
+    renderValidation(results);
+    return;
+  }
+  results.push({ status: 'ok', msg: 'JSON berhasil di-parse' });
+
+  const m = data.match;
+  const g = data.game;
+
+  // match.id required
+  if (!m?.id || String(m.id).trim() === '') {
+    results.push({ status: 'err', msg: 'match.id wajib diisi' });
+  } else {
+    results.push({ status: 'ok', msg: `match.id: ${m.id}` });
+  }
+
+  // tim_a.kode & tim_b.kode
+  if (!m?.tim_a?.kode) {
+    results.push({ status: 'err', msg: 'match.tim_a.kode wajib diisi' });
+  } else {
+    results.push({ status: 'ok', msg: `Tim A: ${m.tim_a.kode} (${m.tim_a.nama || '-'})` });
+  }
+  if (!m?.tim_b?.kode) {
+    results.push({ status: 'err', msg: 'match.tim_b.kode wajib diisi' });
+  } else {
+    results.push({ status: 'ok', msg: `Tim B: ${m.tim_b.kode} (${m.tim_b.nama || '-'})` });
+  }
+
+  // durasi format MM:SS
+  const durMatch = String(g?.durasi || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!durMatch) {
+    results.push({ status: 'err', msg: 'game.durasi harus format MM:SS (contoh: 11:47)' });
+  } else {
+    results.push({ status: 'ok', msg: `Durasi: ${g.durasi}` });
+  }
+
+  // pemenang must match one team
+  const teamCodes = [m?.tim_a?.kode, m?.tim_b?.kode].filter(Boolean);
+  if (!g?.pemenang) {
+    results.push({ status: 'err', msg: 'game.pemenang wajib diisi' });
+  } else if (!teamCodes.includes(g.pemenang)) {
+    results.push({ status: 'err', msg: `game.pemenang "${g.pemenang}" tidak cocok dengan tim manapun (${teamCodes.join(', ')})` });
+  } else {
+    results.push({ status: 'ok', msg: `Pemenang: ${g.pemenang}` });
+  }
+
+  // Exactly 10 players
+  const players = g?.pemain || [];
+  if (players.length !== 10) {
+    results.push({ status: 'err', msg: `Jumlah pemain harus 10, ditemukan: ${players.length}` });
+  } else {
+    results.push({ status: 'ok', msg: '10 pemain terdeteksi' });
+  }
+
+  // Valid lanes
+  const invalidLanes = players.filter((p: any) => !VALID_LANES.includes(p.lane));
+  if (invalidLanes.length > 0) {
+    results.push({ status: 'err', msg: `Lane tidak valid: ${invalidLanes.map((p: any) => `${p.nama}="${p.lane}"`).join(', ')}. Lane valid: ${VALID_LANES.join(', ')}` });
+  } else if (players.length > 0) {
+    results.push({ status: 'ok', msg: 'Semua lane valid' });
+  }
+
+  // Gold sum check
+  if (g?.gold_tim && players.length > 0) {
+    for (const code of teamCodes) {
+      const teamGold = g.gold_tim[code as keyof typeof g.gold_tim];
+      const sumGold = players.filter((p: any) => p.tim === code).reduce((s: number, p: any) => s + (p.gold || 0), 0);
+      if (teamGold !== undefined) {
+        const diff = Math.abs(teamGold - sumGold);
+        if (diff > 500) {
+          results.push({ status: 'warn', msg: `Gold ${code}: total tim ${teamGold.toLocaleString()}, jumlah pemain ${sumGold.toLocaleString()} (selisih ${diff.toLocaleString()})` });
+        } else {
+          results.push({ status: 'ok', msg: `Gold ${code}: ${teamGold.toLocaleString()} (selisih ${diff})` });
+        }
+      }
+    }
+  }
+
+  // Kill/death cross-check
+  if (players.length === 10) {
+    for (const code of teamCodes) {
+      const teamPlayers = players.filter((p: any) => p.tim === code);
+      const otherPlayers = players.filter((p: any) => p.tim !== code);
+      const totalKills = teamPlayers.reduce((s: number, p: any) => s + (p.k || 0), 0);
+      const otherDeaths = otherPlayers.reduce((s: number, p: any) => s + (p.d || 0), 0);
+      if (totalKills !== otherDeaths) {
+        results.push({ status: 'warn', msg: `Kill/death ${code}: kills=${totalKills}, lawan deaths=${otherDeaths}` });
+      } else {
+        results.push({ status: 'ok', msg: `Kill/death ${code} sesuai: ${totalKills}` });
+      }
+    }
+  }
+
+  // MVP exists in player list
+  if (g?.mvp?.pemain) {
+    const mvpFound = players.some((p: any) => p.nama === g.mvp.pemain);
+    if (!mvpFound) {
+      results.push({ status: 'err', msg: `MVP "${g.mvp.pemain}" tidak ditemukan di daftar pemain` });
+    } else {
+      results.push({ status: 'ok', msg: `MVP: ${g.mvp.pemain} (${g.mvp.hero})` });
+    }
+  } else {
+    results.push({ status: 'warn', msg: 'Data MVP tidak ada' });
+  }
+
+  renderValidation(results);
+
+  const hasErrors = results.some(r => r.status === 'err');
+  if (!hasErrors) {
+    parsedData = data;
+    renderPreview(data);
+    previewSection.style.display = 'block';
+    saveSection.style.display = 'block';
+  }
+}
+
+function renderValidation(results: ValResult[]) {
+  const icons: Record<string, string> = { ok: '✓', err: '✗', warn: '⚠' };
+  valList.innerHTML = results.map(r =>
+    `<li class="val-item ${r.status}"><span class="val-icon">${icons[r.status]}</span>${escHtml(r.msg)}</li>`
+  ).join('');
+}
+
+/* ───── preview ───── */
+function renderPreview(data: typeof SCHEMA_EXAMPLE) {
+  const m = data.match;
+  const g = data.game;
+  const winner = g.pemenang;
+  const loser = winner === m.tim_a.kode ? m.tim_b.kode : m.tim_a.kode;
+  const winnerName = winner === m.tim_a.kode ? m.tim_a.nama : m.tim_b.nama;
+  const loserName = loser === m.tim_a.kode ? m.tim_a.nama : m.tim_b.nama;
+
+  // Duration in seconds for DPM/GPM
+  const durParts = g.durasi.match(/^(\d{1,2}):(\d{2})$/);
+  const durSec = durParts ? parseInt(durParts[1]) * 60 + parseInt(durParts[2]) : 0;
+  const durMin = durSec / 60;
+
+  let html = '';
+
+  // Score strip
+  html += `<div class="score-strip">
+    <div class="team winner">${escHtml(winnerName || winner)}<span class="badge w">MENANG</span></div>
+    <div style="text-align:center">
+      <div class="vs">VS</div>
+      <div class="dur">Game ${g.nomor} &mdash; ${g.durasi}</div>
+      ${g.mvp ? `<div class="mvp-tag">MVP: ${escHtml(g.mvp.pemain)} (${escHtml(g.mvp.hero)})</div>` : ''}
+    </div>
+    <div class="team loser">${escHtml(loserName || loser)}<span class="badge l">KALAH</span></div>
+  </div>`;
+
+  // Objectives
+  const objKeys = ['tower', 'tyrant', 'shadow_tyrant', 'tempest_dragon', 'overlord', 'shadow_overlord'] as const;
+  const objLabels: Record<string, string> = {
+    tower: 'Tower', tyrant: 'Tyrant', shadow_tyrant: 'Shadow Tyrant',
+    tempest_dragon: 'Tempest Dragon', overlord: 'Overlord', shadow_overlord: 'Shadow Overlord'
+  };
+  if (g.objektif) {
+    html += `<div class="sb-wrap"><table class="obj-table">
+      <thead><tr><th>OBJEKTIF</th>${objKeys.map(k => `<th>${objLabels[k].toUpperCase()}</th>`).join('')}<th>GOLD</th></tr></thead>
+      <tbody>`;
+    for (const code of [winner, loser]) {
+      const obj = g.objektif[code as keyof typeof g.objektif];
+      const gold = g.gold_tim?.[code as keyof typeof g.gold_tim];
+      const isWinner = code === winner;
+      html += `<tr class="${isWinner ? 'winner-row' : ''}">
+        <td>${escHtml(code)}</td>
+        ${objKeys.map(k => `<td>${obj?.[k] ?? 0}</td>`).join('')}
+        <td>${gold ? gold.toLocaleString('id-ID') : '-'}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
+
+  // Scoreboard
+  const laneLabels: Record<string, string> = {
+    clash_lane: 'CLASH', mid_lane: 'MID', exp_lane: 'EXP', jungle: 'JGL', roam: 'ROAM'
+  };
+  const laneOrder = ['roam', 'mid_lane', 'jungle', 'exp_lane', 'clash_lane'];
+
+  for (const code of [winner, loser]) {
+    const isWin = code === winner;
+    const teamName = code === m.tim_a.kode ? m.tim_a.nama : m.tim_b.nama;
+    const teamPlayers = (g.pemain || [])
+      .filter((p: any) => p.tim === code)
+      .sort((a: any, b: any) => laneOrder.indexOf(a.lane) - laneOrder.indexOf(b.lane));
+
+    html += `<div class="team-label">${escHtml(teamName || code)} ${isWin ? '(MENANG)' : '(KALAH)'}</div>`;
+    html += `<div class="sb-wrap"><table>
+      <thead><tr>
+        <th>PEMAIN</th><th>LANE</th><th>HERO</th>
+        <th>K</th><th>D</th><th>A</th><th>KDA</th>
+        <th>DMG</th><th>TAKEN</th><th>GOLD</th>
+        <th>TF%</th><th>DPM</th><th>GPM</th><th>EFF%</th>
+      </tr></thead><tbody>`;
+
+    for (const p of teamPlayers) {
+      const kda = ((p.k + p.a) / Math.max(p.d, 1)).toFixed(2);
+      const dpm = durMin > 0 ? Math.round(p.damage_dealt / durMin) : 0;
+      const gpm = durMin > 0 ? Math.round(p.gold / durMin) : 0;
+      const eff = p.damage_dealt > 0 ? Math.round((p.damage_dealt / (p.damage_dealt + p.damage_taken)) * 100) : 0;
+      const isMvp = g.mvp?.pemain === p.nama;
+
+      html += `<tr${isMvp ? ' style="background:rgba(224,168,60,0.06)"' : ''}>
+        <td style="font-weight:700${isMvp ? ';color:var(--gold-lite)' : ''}">${escHtml(p.nama)}${isMvp ? ' <span style="font-size:10px;color:var(--gold)">MVP</span>' : ''}</td>
+        <td style="font-size:11px;color:var(--dim)">${laneLabels[p.lane] || p.lane}</td>
+        <td>${escHtml(p.hero)}</td>
+        <td>${p.k}</td>
+        <td>${p.d}</td>
+        <td>${p.a}</td>
+        <td style="font-family:var(--display);font-size:14px">${kda}</td>
+        <td>${p.damage_dealt.toLocaleString('id-ID')}</td>
+        <td>${p.damage_taken.toLocaleString('id-ID')}</td>
+        <td>${p.gold.toLocaleString('id-ID')}</td>
+        <td>${p.teamfight}%</td>
+        <td>${dpm.toLocaleString('id-ID')}</td>
+        <td>${gpm.toLocaleString('id-ID')}</td>
+        <td>${eff}%</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
+
+  previewContent.innerHTML = html;
+}
+
+/* ───── save ───── */
+function log(cls: string, msg: string) {
+  saveLog.style.display = 'block';
+  saveLog.innerHTML += `<div class="${cls}">${escHtml(msg)}</div>`;
+  saveLog.scrollTop = saveLog.scrollHeight;
+}
+
+async function askOverwrite(matchCode: string, gameNum: number): Promise<boolean> {
+  dupMsg.textContent = `Game ${gameNum} dari match "${matchCode}" sudah ada di database. Timpa data lama?`;
+  dupOverlay.classList.add('show');
+  return new Promise(resolve => {
+    dupResolve = resolve;
+  });
+}
+
+dupCancel.addEventListener('click', () => {
+  dupOverlay.classList.remove('show');
+  dupResolve?.(false);
+});
+dupOverwrite.addEventListener('click', () => {
+  dupOverlay.classList.remove('show');
+  dupResolve?.(true);
+});
+
+btnSave.addEventListener('click', async () => {
+  if (!parsedData) return;
+  btnSave.disabled = true;
+  btnSave.innerHTML = '<span class="spinner"></span> MENYIMPAN...';
+  saveLog.innerHTML = '';
+  saveLog.style.display = 'block';
+
+  try {
+    await doSave(parsedData);
+  } catch (e) {
+    log('fail', `Error: ${(e as Error).message}`);
+  } finally {
+    btnSave.disabled = false;
+    btnSave.textContent = 'SIMPAN KE SUPABASE';
+    loadRecent();
+  }
+});
+
+async function doSave(data: typeof SCHEMA_EXAMPLE) {
+  const m = data.match;
+  const g = data.game;
+  const teamACode = m.tim_a.kode.toUpperCase();
+  const teamBCode = m.tim_b.kode.toUpperCase();
+  const winnerCode = g.pemenang.toUpperCase();
+
+  // Step 1: Get active season
+  log('step', '[1/9] Mengambil season aktif...');
+  const { data: season, error: seasonErr } = await supabase
+    .from('seasons')
+    .select('id')
+    .eq('is_active', true)
+    .single();
+  if (seasonErr || !season) throw new Error('Season aktif tidak ditemukan: ' + (seasonErr?.message || 'Tidak ada season aktif'));
+  log('ok', `Season: ${season.id}`);
+
+  // Step 2: Find or create teams
+  log('step', '[2/9] Mencari/membuat tim...');
+  const teamMap: Record<string, string> = {};
+  for (const t of [m.tim_a, m.tim_b]) {
+    const code = t.kode.toUpperCase();
+    const { data: existing } = await supabase
+      .from('teams')
+      .select('id, code')
+      .eq('code', code)
+      .single();
+    if (existing) {
+      teamMap[code] = existing.id;
+      log('ok', `Tim "${code}" ditemukan: ${existing.id}`);
+    } else {
+      const { data: created, error: createErr } = await supabase
+        .from('teams')
+        .insert({ code, name: t.nama })
+        .select('id')
+        .single();
+      if (createErr || !created) throw new Error(`Gagal membuat tim "${code}": ${createErr?.message}`);
+      teamMap[code] = created.id;
+      log('info', `Tim "${code}" dibuat baru: ${created.id}`);
+    }
+  }
+
+  // Step 3: Create or find match
+  log('step', '[3/9] Mencari/membuat match...');
+  const matchCode = String(m.id).toUpperCase();
+  const formatVal = (m.format || 'Bo5').toLowerCase();
+  const { data: existingMatch } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('code', matchCode)
+    .eq('season_id', season.id)
+    .single();
+
+  let matchId: string;
+  if (existingMatch) {
+    matchId = existingMatch.id;
+    log('ok', `Match "${matchCode}" sudah ada: ${matchId}`);
+  } else {
+    const { data: newMatch, error: matchErr } = await supabase
+      .from('matches')
+      .insert({
+        season_id: season.id,
+        code: matchCode,
+        played_on: m.tanggal,
+        week_label: m.minggu,
+        format: formatVal,
+        team_a_id: teamMap[teamACode],
+        team_b_id: teamMap[teamBCode]
+      })
+      .select('id')
+      .single();
+    if (matchErr || !newMatch) throw new Error(`Gagal membuat match: ${matchErr?.message}`);
+    matchId = newMatch.id;
+    log('info', `Match "${matchCode}" dibuat baru: ${matchId}`);
+  }
+
+  // Step 4: Check for duplicate game
+  log('step', '[4/9] Memeriksa duplikat game...');
+  const { data: existingGame } = await supabase
+    .from('games')
+    .select('id')
+    .eq('match_id', matchId)
+    .eq('game_number', g.nomor)
+    .single();
+
+  if (existingGame) {
+    log('info', `Game ${g.nomor} sudah ada (${existingGame.id}). Menunggu konfirmasi...`);
+    const overwrite = await askOverwrite(matchCode, g.nomor);
+    if (!overwrite) {
+      log('fail', 'Dibatalkan oleh pengguna.');
+      return;
+    }
+    // Delete old data
+    log('step', 'Menghapus data game lama...');
+    await supabase.from('game_players').delete().eq('game_id', existingGame.id);
+    await supabase.from('game_teams').delete().eq('game_id', existingGame.id);
+    await supabase.from('games').delete().eq('id', existingGame.id);
+    log('ok', 'Data lama dihapus.');
+  }
+
+  // Step 5: Convert duration & create game
+  log('step', '[5/9] Membuat game...');
+  const durParts = g.durasi.match(/^(\d{1,2}):(\d{2})$/);
+  const durationSeconds = durParts ? parseInt(durParts[1]) * 60 + parseInt(durParts[2]) : 0;
+
+  const { data: newGame, error: gameErr } = await supabase
+    .from('games')
+    .insert({
+      match_id: matchId,
+      game_number: g.nomor,
+      duration_seconds: durationSeconds,
+      winner_team_id: teamMap[winnerCode]
+    })
+    .select('id')
+    .single();
+  if (gameErr || !newGame) throw new Error(`Gagal membuat game: ${gameErr?.message}`);
+  const gameId = newGame.id;
+  log('ok', `Game ${g.nomor} dibuat: ${gameId}`);
+
+  // Step 6: Create game_teams
+  log('step', '[6/9] Menyimpan data tim per game...');
+  for (const code of [teamACode, teamBCode]) {
+    const obj = g.objektif?.[code as keyof typeof g.objektif] || {} as any;
+    const gold = g.gold_tim?.[code as keyof typeof g.gold_tim] || 0;
+    const { error: gtErr } = await supabase.from('game_teams').insert({
+      game_id: gameId,
+      team_id: teamMap[code],
+      is_winner: code === winnerCode,
+      total_gold: gold,
+      towers: obj.tower ?? 0,
+      tyrant: obj.tyrant ?? 0,
+      shadow_tyrant: obj.shadow_tyrant ?? 0,
+      tempest_dragon: obj.tempest_dragon ?? 0,
+      overlord: obj.overlord ?? 0,
+      shadow_overlord: obj.shadow_overlord ?? 0
+    });
+    if (gtErr) throw new Error(`Gagal menyimpan game_teams ${code}: ${gtErr.message}`);
+    log('ok', `game_teams ${code}: OK`);
+  }
+
+  // Step 7: Find or create players
+  log('step', '[7/9] Mencari/membuat pemain...');
+  const playerMap: Record<string, string> = {};
+  for (const p of g.pemain) {
+    const handle = p.nama;
+    const { data: existing } = await supabase
+      .from('players')
+      .select('id, handle')
+      .eq('handle', handle)
+      .single();
+    if (existing) {
+      playerMap[handle] = existing.id;
+    } else {
+      const { data: created, error: pErr } = await supabase
+        .from('players')
+        .insert({ handle, display_name: handle })
+        .select('id')
+        .single();
+      if (pErr || !created) throw new Error(`Gagal membuat pemain "${handle}": ${pErr?.message}`);
+      playerMap[handle] = created.id;
+      log('info', `Pemain "${handle}" dibuat baru`);
+    }
+  }
+  log('ok', `${Object.keys(playerMap).length} pemain siap`);
+
+  // Step 8: Find or create heroes
+  log('step', '[8/9] Mencari/membuat hero...');
+  const heroMap: Record<string, string> = {};
+  const heroNames = [...new Set(g.pemain.map((p: any) => p.hero))];
+  for (const heroName of heroNames) {
+    const { data: existing } = await supabase
+      .from('heroes')
+      .select('id, name')
+      .eq('name', heroName)
+      .single();
+    if (existing) {
+      heroMap[heroName] = existing.id;
+    } else {
+      const { data: created, error: hErr } = await supabase
+        .from('heroes')
+        .insert({ name: heroName })
+        .select('id')
+        .single();
+      if (hErr || !created) throw new Error(`Gagal membuat hero "${heroName}": ${hErr?.message}`);
+      heroMap[heroName] = created.id;
+      log('info', `Hero "${heroName}" dibuat baru`);
+    }
+  }
+  log('ok', `${Object.keys(heroMap).length} hero siap`);
+
+  // Step 9: Create game_players
+  log('step', '[9/9] Menyimpan data pemain per game...');
+  for (const p of g.pemain) {
+    const isMvp = g.mvp?.pemain === p.nama;
+    const { error: gpErr } = await supabase.from('game_players').insert({
+      game_id: gameId,
+      player_id: playerMap[p.nama],
+      team_id: teamMap[p.tim.toUpperCase()],
+      hero_id: heroMap[p.hero] || null,
+      role: p.lane,
+      kills: p.k,
+      deaths: p.d,
+      assists: p.a,
+      damage_dealt: p.damage_dealt,
+      damage_taken: p.damage_taken,
+      gold: p.gold,
+      teamfight_rate: p.teamfight,
+      is_mvp: isMvp
+    });
+    if (gpErr) throw new Error(`Gagal menyimpan game_players "${p.nama}": ${gpErr.message}`);
+  }
+  log('ok', `10 game_players disimpan.`);
+
+  log('ok', '');
+  log('ok', `=== BERHASIL! Match ${m.id} Game ${g.nomor} tersimpan. ===`);
+}
+
+/* ───── recent imports ───── */
+async function loadRecent() {
+  const { data: recent, error } = await supabase
+    .from('games')
+    .select('id, game_number, duration_seconds, created_at, match:matches(code, team_a:teams!team_a_id(code), team_b:teams!team_b_id(code))')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error || !recent || recent.length === 0) {
+    recentList.innerHTML = '<div style="color:var(--dim); font-size:13px;">Belum ada data import.</div>';
+    return;
+  }
+
+  recentList.innerHTML = recent.map((g: any) => {
+    const m = g.match;
+    const tA = m?.team_a?.code || '?';
+    const tB = m?.team_b?.code || '?';
+    const ts = g.created_at ? new Date(g.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+    const dur = g.duration_seconds ? `${Math.floor(g.duration_seconds / 60)}:${String(g.duration_seconds % 60).padStart(2, '0')}` : '-';
+    return `<div class="recent-item">
+      <span class="code">${escHtml(m?.code || '?')}</span>
+      <span>${escHtml(tA)} vs ${escHtml(tB)}</span>
+      <span class="meta">Game ${g.game_number} &bull; ${dur}</span>
+      <span class="ts">${ts}</span>
+    </div>`;
+  }).join('');
+}
+</script>
+
+</Base>
